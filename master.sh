@@ -81,7 +81,6 @@ prepare_os_image() {
         log "Образ уже существует: ${image_file}"
     fi
 }
-# Если хотите автоматически скачивать образ, раскомментируйте следующую строку:
 
 ### 3. Проверка и создание пользователя "shom" и каталогов
 ensure_shom_user_and_dirs() {
@@ -113,33 +112,36 @@ ensure_shom_user_and_dirs() {
     sudo chown shom:shom "$image_dir"
     sudo chmod 775 "$image_dir"
 
-    # Каталог для пула
-    local pool_dir="/home/shom/virsh_HDD"
+    # Каталог для пула (создаем подпапку для Gitea)
+    local pool_dir="/home/shom/virsh_HDD/gitea_pool"
     if [ ! -d "$pool_dir" ]; then
         log "Каталог ${pool_dir} не существует. Создаю его..."
         sudo mkdir -p "$pool_dir"
     fi
     sudo chown shom:shom "$pool_dir"
     sudo chmod 775 "$pool_dir"
+
     log "Пользователь 'shom' и каталоги /home/shom, ${image_dir}, ${pool_dir} настроены."
 }
 ensure_shom_user_and_dirs
 
+# Если хотите автоматически скачивать образ, раскомментируйте следующую строку:
 prepare_os_image
 
-### 4. Проверка и создание пула libvirt (если отсутствует)
+### 4. Проверка и создание пула libvirt
 create_pool() {
     if ! virsh pool-list --all | grep -q "gitea_pool"; then
         log "Пул 'gitea_pool' не найден. Создаю пул..."
-        # Используем каталог /home/shom/virsh_HDD, который настроен выше
+        # Используем новую подпапку /home/shom/virsh_HDD/gitea_pool
         cat <<EOF > gitea_pool.xml
 <pool type='dir'>
   <name>gitea_pool</name>
   <target>
-    <path>/home/shom/virsh_HDD</path>
+    <path>/home/shom/virsh_HDD/gitea_pool</path>
   </target>
 </pool>
 EOF
+
         sudo virsh pool-define gitea_pool.xml
         sudo virsh pool-build gitea_pool
         sudo virsh pool-start gitea_pool
