@@ -31,7 +31,7 @@ variable "vm_vcpu" {
 variable "vm_image_path" {
   description = "Путь к образу Debian minimal в формате qcow2"
   type        = string
-  default     = "/root/OS_images/debian-12-nocloud-amd64-20250316-2053.qcow2"
+  default     = "/home/shom/OS_images/debian-12-nocloud-amd64-20250316-2053.qcow2"
 }
 
 // Статические IP-адреса для ВМ

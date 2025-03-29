@@ -3,7 +3,7 @@ terraform {
   required_providers {
     libvirt = {
       source  = "dmacvicar/libvirt"
-      version = "~> 0.7.0"
+      version = "~> 0.8.3"
     }
   }
 }
@@ -16,7 +16,7 @@ provider "libvirt" {
 resource "libvirt_volume" "vm_volume" {
   count  = var.vm_count
   name   = "gitea_node_disk_${count.index + 1}.qcow2"
-  pool   = "default"
+  pool   = "gitea_pool"
   source = var.vm_image_path
   format = "qcow2"
 }
@@ -24,7 +24,7 @@ resource "null_resource" "resize_volume" {
   count = var.vm_count
 
   provisioner "local-exec" {
-    command = "qemu-img resize /home/virsh/HDD_virt/gitea_node_disk_${count.index + 1}.qcow2 7G"
+    command = "qemu-img resize /home/shom/virsh_HDD/gitea_node_disk_${count.index + 1}.qcow2 7G"
   }
 
   depends_on = [libvirt_volume.vm_volume]
@@ -34,7 +34,7 @@ resource "null_resource" "resize_volume" {
 resource "libvirt_cloudinit_disk" "commoninit" {
   count     = var.vm_count
   name      = "cloudinit-${count.index + 1}.iso"
-  pool      = "default"  # Add this line to specify the storage pool
+  pool      = "gitea_pool"  # Add this line to specify the storage pool
   user_data = templatefile("${path.module}/cloud-init.cfg", {
     hostname     = "gitea-node-${count.index + 1}"
     default_user = var.default_user
