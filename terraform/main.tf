@@ -1,4 +1,3 @@
-# Terraform и провайдер
 terraform {
   required_providers {
     libvirt = {
@@ -20,21 +19,32 @@ resource "libvirt_volume" "vm_volume" {
   source = var.vm_image_path
   format = "qcow2"
 }
+
+# Изменение размера диска до 7G
 resource "null_resource" "resize_volume" {
   count = var.vm_count
 
   provisioner "local-exec" {
     command = "qemu-img resize /home/shom/virsh_HDD/gitea_node_disk_${count.index + 1}.qcow2 7G"
   }
-
   depends_on = [libvirt_volume.vm_volume]
+}
+
+# Фикс прав доступа: смена владельца на qemu:qemu и установка прав 660.
+resource "null_resource" "fix_permissions" {
+  count = var.vm_count
+
+  provisioner "local-exec" {
+    command = "sudo chown qemu:qemu /home/shom/virsh_HDD/gitea_node_disk_${count.index + 1}.qcow2 && sudo chmod 660 /home/shom/virsh_HDD/gitea_node_disk_${count.index + 1}.qcow2"
+  }
+  depends_on = [null_resource.resize_volume]
 }
 
 # Генерация cloud-init ISO для каждой ВМ с использованием шаблона cloud-init.cfg
 resource "libvirt_cloudinit_disk" "commoninit" {
   count     = var.vm_count
   name      = "cloudinit-${count.index + 1}.iso"
-  pool      = "gitea_pool"  # Add this line to specify the storage pool
+  pool      = "gitea_pool"
   user_data = templatefile("${path.module}/cloud-init.cfg", {
     hostname     = "gitea-node-${count.index + 1}"
     default_user = var.default_user
@@ -42,6 +52,7 @@ resource "libvirt_cloudinit_disk" "commoninit" {
     ssh_key      = file(pathexpand(var.ssh_public_key))
   })
 }
+
 # Создание виртуальных машин
 resource "libvirt_domain" "gitea_nodes" {
   count  = var.vm_count
@@ -50,12 +61,11 @@ resource "libvirt_domain" "gitea_nodes" {
   vcpu   = var.vm_vcpu
 
   # Основной диск
-  # Диск с cloud-init для первичной настройки
   disk {
     volume_id = libvirt_volume.vm_volume[count.index].id
   }
   
-  # Use this instead of the disk block for cloud-init
+  # Использование cloud-init (без отдельного диска)
   cloudinit = libvirt_cloudinit_disk.commoninit[count.index].id
 
   # Сетевой интерфейс с назначением статического IP
@@ -66,11 +76,12 @@ resource "libvirt_domain" "gitea_nodes" {
 
   console {
     type        = "pty"
-    target_port = "0"  # Добавлен target_port
+    target_port = "0"
   }
   graphics {
-    type        = "vnc"
-    listen_type = "address"
-    listen_address = "0.0.0.0" # Listen on all interfaces (change if needed)
+    type           = "vnc"
+    listen_type    = "address"
+    listen_address = "0.0.0.0"
   }
 }
+

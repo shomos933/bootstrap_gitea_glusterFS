@@ -2,44 +2,51 @@
 # master.sh
 #
 # Этот скрипт выполняет полное развертывание инфраструктуры:
-# 1. Устанавливает необходимые пакеты (для Debian/Ubuntu и RHEL/CentOS).
-# 2. Запускает Terraform для создания виртуальных машин.
-# 3. Если Terraform завершился успешно, обновляет known_hosts.
-# 4. Запускает Ansible для дальнейшей настройки серверов.
+# 1. Устанавливает необходимые пакеты.
+# 2. (Опционально) Подготавливает образ ОС, если его нет.
+# 3. Проверяет наличие пользователя "shom" и, если его нет, создаёт его;
+#    также настраивает домашний каталог /home/shom и каталог для образов /home/shom/OS_images.
+# 4. Проверяет и создает каталог для пула libvirt (/home/shom/virsh_HDD) с нужными правами,
+#    устанавливает права на родительские каталоги и задаёт правильный SELinux-контекст.
+# 5. Добавляет пользователя "shom" в группу libvirt.
+# 6. Запускает Terraform для создания виртуальных машин.
+# 7. Обновляет known_hosts для созданных серверов.
+# 8. Запускает Ansible для дальнейшей настройки серверов.
 #
-# Логирование ведется в файле master.log в корне проекта.
+# Логирование ведется в файле master.log.
+# Рекомендуется запускать этот скрипт от root (или через sudo).
 
 LOGFILE="master.log"
-TERRAFORM_VERSION="1.11.0"
 
 # Функция логирования с меткой времени
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOGFILE"
 }
 
+# Проверка запуска от root
+if [ "$EUID" -ne 0 ]; then
+    log "WARNING: Рекомендуется запускать этот скрипт от root или через sudo."
+fi
+
 log "=== Начало развертывания через master.sh ==="
 
-# Функция установки необходимых пакетов в зависимости от ОС
+### 1. Установка необходимых пакетов
 install_packages() {
     if [ -f /etc/debian_version ]; then
-        log "Debian/Ubuntu-система обнаружена. Устанавливаю пакеты..."
+        log "Debian/Ubuntu обнаружены. Устанавливаю пакеты..."
         sudo apt update
         sudo apt install -y qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils terraform ansible cloud-utils jq git
     elif [ -f /etc/redhat-release ]; then
-        log "RHEL/CentOS-система обнаружена. Устанавливаю пакеты..."
-        # Установка базовых пакетов
+        log "RHEL/CentOS обнаружены. Устанавливаю пакеты..."
         sudo dnf install -y qemu-kvm libvirt libvirt-client virt-install jq git
-        # Установка EPEL, если еще не установлен
         if ! rpm -q epel-release &>/dev/null; then
             log "EPEL не найден. Устанавливаю EPEL..."
             sudo dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
         fi
-        # Установка Ansible Core и cloud-utils-growpart
         sudo dnf install -y ansible-core cloud-utils-growpart
-        # Проверка наличия terraform (если отсутствует – скачать и установить вручную)
         if ! command -v terraform &>/dev/null; then
             log "Terraform не найден. Скачиваю и устанавливаю Terraform..."
-            TERRAFORM_VERSION="1.5.0"  # укажите нужную версию
+            TERRAFORM_VERSION="1.11.0"  # укажите нужную версию
             wget https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip
             unzip terraform_${TERRAFORM_VERSION}_linux_amd64.zip
             sudo mv terraform /usr/local/bin/
@@ -51,16 +58,113 @@ install_packages() {
     fi
     log "Установка пакетов завершена."
 }
-
 install_packages
 
-# Убеждаемся, что libvirtd запущен и пользователь входит в группу libvirt
-log "Запускаю libvirtd..."
-sudo systemctl enable --now libvirtd
-sudo usermod -aG libvirt $(whoami)
+### 2. (Опционально) Подготовка образа ОС
+prepare_os_image() {
+    local image_dir="/home/shom/OS_images"
+    local image_file="${image_dir}/debian-12-nocloud-amd64-20250316-2053.qcow2"
+    local image_url="https://cdimage.debian.org/images/cloud/bookworm/20250316-2053/debian-12-nocloud-amd64-20250316-2053.qcow2"
+
+
+    log "Проверяю наличие образа в ${image_file}"
+    if [ ! -f "$image_file" ]; then
+        log "Образ не найден. Начинаю скачивание из ${image_url}..."
+        wget -O "$image_file" "$image_url"
+        if [ $? -eq 0 ]; then
+            log "Образ успешно скачан в ${image_file}"
+        else
+            log "Ошибка при скачивании образа."
+            exit 1
+        fi
+    else
+        log "Образ уже существует: ${image_file}"
+    fi
+}
+# Если хотите автоматически скачивать образ, раскомментируйте следующую строку:
+
+### 3. Проверка и создание пользователя "shom" и каталогов
+ensure_shom_user_and_dirs() {
+    if id "shom" &>/dev/null; then
+        log "Пользователь 'shom' уже существует."
+    else
+        log "Пользователь 'shom' не найден. Создаю пользователя 'shom'..."
+        sudo useradd -m -s /bin/bash shom
+        if [ $? -ne 0 ]; then
+            log "Ошибка при создании пользователя 'shom'."
+            exit 1
+        fi
+    fi
+
+    # Домашний каталог
+    if [ ! -d "/home/shom" ]; then
+        log "Домашний каталог /home/shom не существует. Создаю его..."
+        sudo mkdir -p /home/shom
+    fi
+    sudo chown shom:shom /home/shom
+    sudo chmod 775 /home/shom
+
+    # Каталог для образов
+    local image_dir="/home/shom/OS_images"
+    if [ ! -d "$image_dir" ]; then
+        log "Каталог ${image_dir} не существует. Создаю его..."
+        sudo mkdir -p "$image_dir"
+    fi
+    sudo chown shom:shom "$image_dir"
+    sudo chmod 775 "$image_dir"
+
+    # Каталог для пула
+    local pool_dir="/home/shom/virsh_HDD"
+    if [ ! -d "$pool_dir" ]; then
+        log "Каталог ${pool_dir} не существует. Создаю его..."
+        sudo mkdir -p "$pool_dir"
+    fi
+    sudo chown shom:shom "$pool_dir"
+    sudo chmod 775 "$pool_dir"
+    log "Пользователь 'shom' и каталоги /home/shom, ${image_dir}, ${pool_dir} настроены."
+}
+ensure_shom_user_and_dirs
+
+prepare_os_image
+
+### 4. Проверка и создание пула libvirt (если отсутствует)
+create_pool() {
+    if ! virsh pool-list --all | grep -q "gitea_pool"; then
+        log "Пул 'gitea_pool' не найден. Создаю пул..."
+        # Используем каталог /home/shom/virsh_HDD, который настроен выше
+        cat <<EOF > gitea_pool.xml
+<pool type='dir'>
+  <name>gitea_pool</name>
+  <target>
+    <path>/home/shom/virsh_HDD</path>
+  </target>
+</pool>
+EOF
+        sudo virsh pool-define gitea_pool.xml
+        sudo virsh pool-build gitea_pool
+        sudo virsh pool-start gitea_pool
+        sudo virsh pool-autostart gitea_pool
+        rm gitea_pool.xml
+        log "Пул 'gitea_pool' успешно создан."
+    else
+        log "Пул 'gitea_pool' уже существует."
+    fi
+
+    # Если SELinux включен, установить нужный контекст для каталога пула
+    if command -v getenforce &>/dev/null && [ "$(getenforce)" = "Enforcing" ]; then
+        log "SELinux включен. Устанавливаю контекст безопасности для /home/shom/virsh_HDD..."
+        sudo chcon -R -t svirt_image_t /home/shom/virsh_HDD
+    fi
+}
+create_pool
+
+### 5. Добавление пользователя "shom" в группу libvirt
+log "Добавляю пользователя shom в группу libvirt..."
+sudo usermod -aG libvirt shom
+# Для применения изменений в текущей сессии можно выполнить:
 newgrp libvirt
 
-# Запуск Terraform
+### 6. Запуск Terraform для создания виртуальных машин
 log "Запуск Terraform..."
 cd terraform || { log "Не удалось перейти в каталог terraform"; exit 1; }
 
@@ -71,14 +175,14 @@ if [ ${PIPESTATUS[0]} -ne 0 ]; then
     exit 1
 fi
 
-log "Планирование развертывания Terraform..."
+log "Планирование Terraform..."
 terraform plan | tee -a "../$LOGFILE"
 if [ ${PIPESTATUS[0]} -ne 0 ]; then
     log "Ошибка: terraform plan завершился с ошибкой."
     exit 1
 fi
 
-log "Применение конфигурации Terraform..."
+log "Применение Terraform..."
 terraform apply -auto-approve | tee -a "../$LOGFILE"
 if [ ${PIPESTATUS[0]} -ne 0 ]; then
     log "Ошибка: terraform apply завершился с ошибкой."
@@ -87,14 +191,13 @@ fi
 cd .. || exit 1
 log "Terraform успешно завершился."
 
-# Обновление known_hosts для созданных серверов
+### 7. Обновление known_hosts для созданных серверов
 log "Обновление known_hosts..."
-# Здесь предполагается, что статические IP совпадают с теми, что указаны в inventory.ini (например, 192.168.122.101 и 192.168.122.102)
 for ip in 192.168.122.101 192.168.122.102; do
-  ssh-keyscan -H "$ip" >> ~/.ssh/known_hosts
+  ssh-keyscan -H "$ip" >> ~/.ssh/known_hosts 2>/dev/null
 done
 
-# Запуск Ansible playbook
+### 8. Запуск Ansible playbook для дальнейшей настройки серверов
 log "Запуск Ansible playbook..."
 cd ansible || { log "Не удалось перейти в каталог ansible"; exit 1; }
 ansible-playbook -i inventory.ini playbook.yml | tee -a "../$LOGFILE"
