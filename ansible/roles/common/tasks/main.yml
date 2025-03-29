@@ -1,0 +1,84 @@
+---
+# Обновление системы и установка базовых утилит
+
+- name: Обновление пакетов (Debian)
+  apt:
+    update_cache: yes
+    upgrade: yes
+  when: ansible_os_family == "Debian"
+
+- name: Обновление пакетов (RedHat)
+  yum:
+    name: "*"
+    state: latest
+  when: ansible_os_family == "RedHat"
+
+- name: Установка необходимых утилит
+  package:
+    name:
+      - git
+      - wget
+      - curl
+      - rsyslog
+    state: present
+
+# Отключение автоматических обновлений и очистка кэша
+- name: Отключить автоматические обновления для Debian
+  copy:
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    content: |
+      APT::Periodic::Update-Package-Lists "0";
+      APT::Periodic::Unattended-Upgrade "0";
+  when: ansible_os_family == "Debian"
+
+- name: Очистить кэш пакетов для Debian
+  apt:
+    autoclean: yes
+  when: ansible_os_family == "Debian"
+
+- name: Отключить автоматические обновления для RedHat
+  copy:
+    dest: /etc/dnf/automatic.conf
+    content: |
+      [commands]
+      apply_updates = no
+  when: ansible_os_family == "RedHat"
+
+- name: Очистить кэш пакетов для RedHat
+  command: dnf clean all
+  when: ansible_os_family == "RedHat"
+
+# Отключение спящих режимов (если применимо)
+- name: Отключить режимы энергосбережения (пример sysctl)
+  ansible.posix.sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    state: present
+    reload: yes
+  loop:
+      - { name: "vm.suspend_mode", value: "0" }
+      - { name: "vm.hibernation_mode", value: "0" }
+  ignore_errors: yes
+
+# Копирование скрипта настройки логов (логи будут сохраняться в корне проекта)
+- name: Копировать скрипт настройки логов
+  copy:
+    src: files/setup_log_management.sh
+    dest: /usr/local/bin/setup_log_management.sh
+    mode: '0755'
+
+# Запуск скрипта настройки логов
+- name: Запустить скрипт настройки логов
+  command: /usr/local/bin/setup_log_management.sh
+  register: log_script_result
+  changed_when: log_script_result.rc == 0
+
+# Обновление known_hosts для всех узлов с использованием ssh-keyscan
+- name: Обновить known_hosts для узлов
+  known_hosts:
+    path: /home/shom/.ssh/known_hosts
+    name: "{{ item }}"
+    key: "{{ lookup('pipe', 'ssh-keyscan -H ' ~ item) }}"
+  loop: "{{ groups['gitea_nodes'] }}"
+  delegate_to: localhost
+

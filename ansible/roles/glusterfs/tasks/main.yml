@@ -1,0 +1,43 @@
+---
+- name: Установить GlusterFS сервер (Debian)
+  apt:
+    name: glusterfs-server
+    state: present
+  when: ansible_os_family == "Debian"
+
+- name: Установить GlusterFS сервер (RedHat)
+  yum:
+    name: glusterfs-server
+    state: present
+  when: ansible_os_family == "RedHat"
+
+- name: Обеспечить, что сервис glusterd запущен
+  service:
+    name: glusterd
+    state: started
+    enabled: yes
+
+- name: Создать директорию /data для GlusterFS
+  file:
+    path: /data
+    state: directory
+    owner: gluster
+    group: gluster
+    mode: '0755'
+
+- name: Добавить записи в /etc/hosts для узлов
+  lineinfile:
+    dest: /etc/hosts
+    line: "{{ item }}"
+    state: present
+  loop:
+    - "192.168.122.101 gitea-node-1"
+    - "192.168.122.102 gitea-node-2"
+
+- name: Создать том GlusterFS (на gitea-node-1)
+  shell: |
+    gluster volume create gitea-repos replica 2 gitea-node-1:/data gitea-node-2:/data force && gluster volume start gitea-repos
+  args:
+    creates: /var/lib/glusterd/vols/gitea-repos
+  when: inventory_hostname == "192.168.122.101"
+

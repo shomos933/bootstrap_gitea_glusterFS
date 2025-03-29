@@ -1,0 +1,97 @@
+---
+- name: Установить зависимости для Gitea (Debian)
+  apt:
+    name:
+      - git
+      - sqlite3
+    state: present
+  when: ansible_os_family == "Debian"
+
+- name: Установить зависимости для Gitea (RedHat)
+  yum:
+    name:
+      - git
+      - sqlite
+    state: present
+  when: ansible_os_family == "RedHat"
+
+- name: Скачать бинарный файл Gitea
+  get_url:
+    url: "https://dl.gitea.io/gitea/latest/gitea-1.17.6-linux-amd64"
+    dest: /usr/local/bin/gitea
+    mode: '0755'
+  args:
+    creates: /usr/local/bin/gitea
+
+- name: Создать системного пользователя git
+  user:
+    name: git
+    system: yes
+    shell: /bin/bash
+    create_home: yes
+
+- name: Создать необходимые директории для Gitea
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: git
+    group: git
+    mode: '0755'
+  loop:
+    - /var/lib/gitea/custom
+    - /var/lib/gitea/data
+    - /var/lib/gitea/indexers
+    - /var/lib/gitea/public
+    - /var/lib/gitea/log
+    - /var/lib/gitea/gitea-repositories
+
+- name: Скопировать конфигурацию Gitea
+  copy:
+    dest: /etc/gitea/app.ini
+    content: |
+      [server]
+      HTTP_PORT = 3000
+      ROOT_URL = http://{{ ansible_default_ipv4.address }}:3000/
+
+      [database]
+      DB_TYPE = sqlite3
+      PATH    = /var/lib/gitea/data/gitea.db
+
+      [repository]
+      ROOT = /var/lib/gitea/gitea-repositories
+  notify: Restart Gitea
+
+- name: Создать systemd unit для Gitea
+  copy:
+    dest: /etc/systemd/system/gitea.service
+    content: |
+      [Unit]
+      Description=Gitea (Git with a cup of tea)
+      After=network.target
+
+      [Service]
+      User=git
+      Group=git
+      WorkingDirectory=/var/lib/gitea/
+      ExecStart=/usr/local/bin/gitea web --config /etc/gitea/app.ini
+      Restart=always
+      Environment=USER=git HOME=/home/git GITEA_WORK_DIR=/var/lib/gitea
+
+      [Install]
+      WantedBy=multi-user.target
+  notify: Restart Gitea
+
+- name: Перезапустить и включить сервис Gitea
+  systemd:
+    name: gitea
+    state: restarted
+    enabled: yes
+
+- name: Смонтировать GlusterFS том для Gitea
+  mount:
+    path: /var/lib/gitea/gitea-repositories
+    src: "gitea-node-1:/gitea-repos"
+    fstype: glusterfs
+    opts: defaults
+    state: mounted
+

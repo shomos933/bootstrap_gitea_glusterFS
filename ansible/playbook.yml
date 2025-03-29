@@ -1,0 +1,8 @@
+- name: Настройка серверов для Gitea с GlusterFS
+  hosts: gitea_nodes
+  become: yes
+  roles:
+    - common
+    - glusterfs
+    - gitea
+

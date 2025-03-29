@@ -43,7 +43,12 @@ install_packages() {
             log "EPEL не найден. Устанавливаю EPEL..."
             sudo dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
         fi
-        sudo dnf install -y ansible-core cloud-utils-growpart
+        sudo dnf install -y ansible-core cloud-utils-growpart genisoimage cloud-init
+	ansible-galaxy collection install ansible.posix
+	if [ ! -f /usr/bin/mkisofs ]; then
+		sudo ln -s /usr/bin/genisoimage /usr/bin/mkisofs
+		export PATH=$PATH:/usr/bin/mkisofs
+	fi
         if ! command -v terraform &>/dev/null; then
             log "Terraform не найден. Скачиваю и устанавливаю Terraform..."
             TERRAFORM_VERSION="1.11.0"  # укажите нужную версию
@@ -161,10 +166,11 @@ EOF
 create_pool
 
 ### 5. Добавление пользователя "shom" в группу libvirt
-log "Добавляю пользователя shom в группу libvirt..."
-sudo usermod -aG libvirt shom
+#log "Добавляю пользователя shom в группу libvirt..."
+#sudo usermod -aG libvirt shom
 # Для применения изменений в текущей сессии можно выполнить:
-newgrp libvirt
+#newgrp libvirt
+#КОМАНДА newgrp ВЫЗЫВАЕТ ПЕРЕКЛЮЧЕНИЕ КОНТЕКСТА ОБОЛОЧКИ И ПРЕРВЫАЕТ ИЗ_ЗА ЭТОГО СКРИПТ!!!
 
 ### 6. Запуск Terraform для создания виртуальных машин
 log "Запуск Terraform..."

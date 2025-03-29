@@ -25,8 +25,10 @@ resource "null_resource" "resize_volume" {
   count = var.vm_count
 
   provisioner "local-exec" {
-    command = "qemu-img resize /home/shom/virsh_HDD/gitea_node_disk_${count.index + 1}.qcow2 7G"
+    # Путь скорректирован: диски теперь лежат в каталоге gitea_pool
+    command = "qemu-img resize /home/shom/virsh_HDD/gitea_pool/gitea_node_disk_${count.index + 1}.qcow2 7G"
   }
+
   depends_on = [libvirt_volume.vm_volume]
 }
 
@@ -35,8 +37,10 @@ resource "null_resource" "fix_permissions" {
   count = var.vm_count
 
   provisioner "local-exec" {
-    command = "sudo chown qemu:qemu /home/shom/virsh_HDD/gitea_node_disk_${count.index + 1}.qcow2 && sudo chmod 660 /home/shom/virsh_HDD/gitea_node_disk_${count.index + 1}.qcow2"
+    # Обновляем путь, чтобы он ссылался на файлы в каталоге gitea_pool
+    command = "sudo chown qemu:qemu /home/shom/virsh_HDD/gitea_pool/gitea_node_disk_${count.index + 1}.qcow2 && sudo chmod 660 /home/shom/virsh_HDD/gitea_pool/gitea_node_disk_${count.index + 1}.qcow2"
   }
+
   depends_on = [null_resource.resize_volume]
 }
 
