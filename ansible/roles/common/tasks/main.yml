@@ -1,5 +1,21 @@
 ---
 # Обновление системы и установка базовых утилит
+- name: Создать swap-файл размером 1GB
+  become: yes
+  shell: |
+    fallocate -l 1G /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=1024
+    chmod 600 /swapfile
+    mkswap /swapfile
+    swapon /swapfile
+  args:
+    creates: /swapfile
+
+- name: Добавить swap в /etc/fstab
+  become: yes
+  lineinfile:
+    path: /etc/fstab
+    line: '/swapfile none swap sw 0 0'
+    state: present
 
 - name: Обновление пакетов (Debian/Ubuntu)
   apt:

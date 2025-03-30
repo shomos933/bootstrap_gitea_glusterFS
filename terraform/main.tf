@@ -4,6 +4,10 @@ terraform {
       source  = "dmacvicar/libvirt"
       version = "~> 0.8.3"
     }
+    time = {
+      source  = "hashicorp/time"
+      version = "~> 0.9.1"
+    }
   }
 }
 
@@ -21,28 +25,32 @@ resource "libvirt_volume" "vm_volume" {
 }
 
 # Изменение размера диска до 7G
-#resource "null_resource" "resize_volume" {
-#  count = var.vm_count
-#
-#  provisioner "local-exec" {
-#    # Путь скорректирован: диски теперь лежат в каталоге gitea_pool
-#    command = "qemu-img resize /home/shom/virsh_HDD/gitea_pool/gitea_node_disk_${count.index + 1}.qcow2 7G"
-#  }
-#
-#  depends_on = [libvirt_volume.vm_volume]
-#}
+resource "null_resource" "resize_volume" {
+  count = var.vm_count
 
-# Фикс прав доступа: смена владельца на qemu:qemu и установка прав 660.
-#resource "null_resource" "fix_permissions" {
-#  count = var.vm_count
+  provisioner "local-exec" {
+    command = "qemu-img resize /home/shom/virsh_HDD/gitea_pool/gitea_node_disk_${count.index + 1}.qcow2 7G"
+  }
+
+  depends_on = [libvirt_volume.vm_volume]
+}
+
+# Добавляем задержку, чтобы убедиться, что resize завершился и блокировка снята
+resource "time_sleep" "wait_after_resize" {
+  create_duration = "10s"
+  depends_on = [null_resource.resize_volume]
+}
+
+# (Опционально) Фикс прав доступа, если потребуется (можно оставить, если не вызывает проблем)
+# resource "null_resource" "fix_permissions" {
+#   count = var.vm_count
 #
-#  provisioner "local-exec" {
-#    # Обновляем путь, чтобы он ссылался на файлы в каталоге gitea_pool
-#    command = "sudo chown qemu:qemu /home/shom/virsh_HDD/gitea_pool/gitea_node_disk_${count.index + 1}.qcow2 && sudo chmod 660 /home/shom/virsh_HDD/gitea_pool/gitea_node_disk_${count.index + 1}.qcow2"
-#  }
+#   provisioner "local-exec" {
+#     command = "sudo chown qemu:qemu /home/shom/virsh_HDD/gitea_pool/gitea_node_disk_${count.index + 1}.qcow2 && sudo chmod 660 /home/shom/virsh_HDD/gitea_pool/gitea_node_disk_${count.index + 1}.qcow2"
+#   }
 #
-#  depends_on = [null_resource.resize_volume]
-#}
+#   depends_on = [time_sleep.wait_after_resize]
+# }
 
 # Генерация cloud-init ISO для каждой ВМ с использованием шаблона cloud-init.cfg
 resource "libvirt_cloudinit_disk" "commoninit" {
@@ -55,6 +63,7 @@ resource "libvirt_cloudinit_disk" "commoninit" {
     static_ip    = var.static_ips[count.index]
     ssh_key      = file(pathexpand(var.ssh_public_key))
   })
+  depends_on = [time_sleep.wait_after_resize]
 }
 
 # Создание виртуальных машин

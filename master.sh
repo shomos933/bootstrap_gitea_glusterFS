@@ -176,21 +176,21 @@ log "Запуск Terraform..."
 cd terraform || { log "Не удалось перейти в каталог terraform"; exit 1; }
 
 log "Инициализация Terraform..."
-terraform init | tee -a "../$LOGFILE"
+terraform init | tee -a "$LOGFILE"
 if [ ${PIPESTATUS[0]} -ne 0 ]; then
     log "Ошибка: terraform init завершился с ошибкой."
     exit 1
 fi
 
 log "Планирование Terraform..."
-terraform plan | tee -a "../$LOGFILE"
+terraform plan | tee -a "$LOGFILE"
 if [ ${PIPESTATUS[0]} -ne 0 ]; then
     log "Ошибка: terraform plan завершился с ошибкой."
     exit 1
 fi
 
 log "Применение Terraform..."
-terraform apply -auto-approve | tee -a "../$LOGFILE"
+terraform apply -auto-approve | tee -a "$LOGFILE"
 if [ ${PIPESTATUS[0]} -ne 0 ]; then
     log "Ошибка: terraform apply завершился с ошибкой."
     exit 1
