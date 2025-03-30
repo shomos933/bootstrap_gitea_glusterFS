@@ -34,6 +34,18 @@
     - "192.168.122.101 gitea-node-1"
     - "192.168.122.102 gitea-node-2"
 
+# Добавляем узел в кластер, если он ещё не добавлен.
+- name: Добавить gitea-node-2 в кластер с gitea-node-1
+  shell: gluster peer probe 192.168.122.102
+  when: inventory_hostname == "192.168.122.101"
+  ignore_errors: yes
+
+# Ожидание формирования пиров (например, 30 секунд)
+- name: Ожидание формирования пиров в кластере GlusterFS
+  pause:
+    seconds: 60
+  when: inventory_hostname == "192.168.122.101"
+
 - name: Создать том GlusterFS (на gitea-node-1)
   shell: |
     gluster volume create gitea-repos replica 2 gitea-node-1:/data gitea-node-2:/data force && gluster volume start gitea-repos

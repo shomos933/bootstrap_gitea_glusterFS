@@ -16,7 +16,7 @@
 # Логирование ведется в файле master.log.
 # Рекомендуется запускать этот скрипт от root (или через sudo).
 
-LOGFILE="master.log"
+LOGFILE="$(pwd)/master.log"
 
 # Функция логирования с меткой времени
 log() {
@@ -30,28 +30,28 @@ fi
 
 log "=== Начало развертывания через master.sh ==="
 
-### 1. Установка необходимых пакетов
 install_packages() {
     if [ -f /etc/debian_version ]; then
         log "Debian/Ubuntu обнаружены. Устанавливаю пакеты..."
         sudo apt update
-        sudo apt install -y qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils terraform ansible cloud-utils jq git
+        sudo apt install -y genisoimage qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils terraform ansible cloud-utils jq git openssh-server
+        # Дополнительно: установка необходимых коллекций Ansible
+        ansible-galaxy collection install ansible.posix
     elif [ -f /etc/redhat-release ]; then
         log "RHEL/CentOS обнаружены. Устанавливаю пакеты..."
-        sudo dnf install -y qemu-kvm libvirt libvirt-client virt-install jq git
+        sudo dnf install -y qemu-kvm libvirt libvirt-client virt-install jq git openssh-server
         if ! rpm -q epel-release &>/dev/null; then
             log "EPEL не найден. Устанавливаю EPEL..."
             sudo dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
         fi
         sudo dnf install -y ansible-core cloud-utils-growpart genisoimage cloud-init
-	ansible-galaxy collection install ansible.posix
-	if [ ! -f /usr/bin/mkisofs ]; then
-		sudo ln -s /usr/bin/genisoimage /usr/bin/mkisofs
-		export PATH=$PATH:/usr/bin/mkisofs
-	fi
+        ansible-galaxy collection install ansible.posix
+        if [ ! -f /usr/bin/mkisofs ]; then
+            sudo ln -s /usr/bin/genisoimage /usr/bin/mkisofs
+        fi
         if ! command -v terraform &>/dev/null; then
             log "Terraform не найден. Скачиваю и устанавливаю Terraform..."
-            TERRAFORM_VERSION="1.11.0"  # укажите нужную версию
+            TERRAFORM_VERSION="1.11.0"  # Укажите нужную версию
             wget https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip
             unzip terraform_${TERRAFORM_VERSION}_linux_amd64.zip
             sudo mv terraform /usr/local/bin/
@@ -68,13 +68,12 @@ install_packages
 ### 2. (Опционально) Подготовка образа ОС
 prepare_os_image() {
     local image_dir="/home/shom/OS_images"
-    local image_file="${image_dir}/debian-12-nocloud-amd64-20250316-2053.qcow2"
-    local image_url="https://cdimage.debian.org/images/cloud/bookworm/20250316-2053/debian-12-nocloud-amd64-20250316-2053.qcow2"
-
+    local image_file="${image_dir}/ubuntu-24.04-server-cloudimg-amd64.img"
+    local image_url="https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img"
 
     log "Проверяю наличие образа в ${image_file}"
     if [ ! -f "$image_file" ]; then
-        log "Образ не найден. Начинаю скачивание из ${image_url}..."
+        log "Образ не найден. Скачиваю ${image_url}..."
         wget -O "$image_file" "$image_url"
         if [ $? -eq 0 ]; then
             log "Образ успешно скачан в ${image_file}"
@@ -199,6 +198,11 @@ fi
 cd .. || exit 1
 log "Terraform успешно завершился."
 
+
+# После Terraform и перед Ansible
+echo "Ожидание инициализации SSH..."
+sleep 30  # Ожидание 30 секунд
+
 ### 7. Обновление known_hosts для созданных серверов
 log "Обновление known_hosts..."
 for ip in 192.168.122.101 192.168.122.102; do
@@ -208,7 +212,7 @@ done
 ### 8. Запуск Ansible playbook для дальнейшей настройки серверов
 log "Запуск Ansible playbook..."
 cd ansible || { log "Не удалось перейти в каталог ansible"; exit 1; }
-ansible-playbook -i inventory.ini playbook.yml | tee -a "../$LOGFILE"
+ansible-playbook -i inventory.ini playbook.yml | tee -a "$LOGFILE"
 if [ ${PIPESTATUS[0]} -ne 0 ]; then
     log "Ошибка: Ansible playbook завершился с ошибкой."
     exit 1

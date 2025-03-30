@@ -1,7 +1,7 @@
 ---
 # Обновление системы и установка базовых утилит
 
-- name: Обновление пакетов (Debian)
+- name: Обновление пакетов (Debian/Ubuntu)
   apt:
     update_cache: yes
     upgrade: yes
@@ -13,17 +13,37 @@
     state: latest
   when: ansible_os_family == "RedHat"
 
-- name: Установка необходимых утилит
-  package:
+- name: Установка необходимых утилит (Debian/Ubuntu)
+  apt:
     name:
       - git
       - wget
       - curl
       - rsyslog
+      - openssh-server
     state: present
+  when: ansible_os_family == "Debian"
+
+- name: Установка необходимых утилит (RedHat)
+  yum:
+    name:
+      - git
+      - wget
+      - curl
+      - rsyslog
+      - openssh-server
+    state: present
+  when: ansible_os_family == "RedHat"
+
+# дополнительно проверяем, что сервис SSH запущен
+- name: Ensure SSH service is enabled and started
+  service:
+    name: ssh
+    state: started
+    enabled: yes
 
 # Отключение автоматических обновлений и очистка кэша
-- name: Отключить автоматические обновления для Debian
+- name: Отключить автоматические обновления для Debian/Ubuntu
   copy:
     dest: /etc/apt/apt.conf.d/20auto-upgrades
     content: |
@@ -31,7 +51,7 @@
       APT::Periodic::Unattended-Upgrade "0";
   when: ansible_os_family == "Debian"
 
-- name: Очистить кэш пакетов для Debian
+- name: Очистить кэш пакетов для Debian/Ubuntu
   apt:
     autoclean: yes
   when: ansible_os_family == "Debian"
@@ -48,17 +68,11 @@
   command: dnf clean all
   when: ansible_os_family == "RedHat"
 
-# Отключение спящих режимов (если применимо)
-- name: Отключить режимы энергосбережения (пример sysctl)
-  ansible.posix.sysctl:
-    name: "{{ item.name }}"
-    value: "{{ item.value }}"
-    state: present
-    reload: yes
-  loop:
-      - { name: "vm.suspend_mode", value: "0" }
-      - { name: "vm.hibernation_mode", value: "0" }
-  ignore_errors: yes
+# Отключение спящих режимов
+- name: Отключить sleep, suspend, hibernate
+  command: systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
+
+
 
 # Копирование скрипта настройки логов (логи будут сохраняться в корне проекта)
 - name: Копировать скрипт настройки логов
@@ -71,7 +85,7 @@
 - name: Запустить скрипт настройки логов
   command: /usr/local/bin/setup_log_management.sh
   register: log_script_result
-  changed_when: log_script_result.rc == 0
+  changed_when: false
 
 # Обновление known_hosts для всех узлов с использованием ssh-keyscan
 - name: Обновить known_hosts для узлов

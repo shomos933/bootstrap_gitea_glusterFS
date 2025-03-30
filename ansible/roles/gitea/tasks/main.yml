@@ -15,13 +15,17 @@
     state: present
   when: ansible_os_family == "RedHat"
 
-- name: Скачать бинарный файл Gitea
-  get_url:
-    url: "https://dl.gitea.io/gitea/latest/gitea-1.17.6-linux-amd64"
-    dest: /usr/local/bin/gitea
-    mode: '0755'
+- name: Скачать бинарный файл Gitea с помощью wget
+  command: wget https://dl.gitea.com/gitea/1.23.6/gitea-1.23.6-linux-amd64 -O /usr/local/bin/gitea
   args:
     creates: /usr/local/bin/gitea
+  become: yes
+
+- name: Сделать бинарный файл Gitea исполняемым
+  file:
+    path: /usr/local/bin/gitea
+    mode: '0755'
+  become: yes
 
 - name: Создать системного пользователя git
   user:
@@ -45,6 +49,15 @@
     - /var/lib/gitea/log
     - /var/lib/gitea/gitea-repositories
 
+- name: Создать директорию /etc/gitea
+  file:
+    path: /etc/gitea
+    state: directory
+    owner: git
+    group: git
+    mode: '0755'
+  become: yes
+
 - name: Скопировать конфигурацию Gitea
   copy:
     dest: /etc/gitea/app.ini
@@ -52,6 +65,7 @@
       [server]
       HTTP_PORT = 3000
       ROOT_URL = http://{{ ansible_default_ipv4.address }}:3000/
+      RUN_MODE = prod
 
       [database]
       DB_TYPE = sqlite3
@@ -59,6 +73,22 @@
 
       [repository]
       ROOT = /var/lib/gitea/gitea-repositories
+
+      [security]
+      INSTALL_LOCK = true  # Предотвращает повторный запуск установки
+
+      [admin]
+      # Раскомментируйте и настройте для автоматического создания админа (менее безопасно)
+      USER_NAME = shom 
+      PASSWORD = 556611
+      # EMAIL = your_admin_email
+
+- name: Изменить владельца  /etc/gitea/app.ini на git
+  file:
+    path: /etc/gitea/app.ini
+    owner: git
+    group: git
+  become: yes
   notify: Restart Gitea
 
 - name: Создать systemd unit для Gitea

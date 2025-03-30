@@ -21,28 +21,28 @@ resource "libvirt_volume" "vm_volume" {
 }
 
 # Изменение размера диска до 7G
-resource "null_resource" "resize_volume" {
-  count = var.vm_count
-
-  provisioner "local-exec" {
-    # Путь скорректирован: диски теперь лежат в каталоге gitea_pool
-    command = "qemu-img resize /home/shom/virsh_HDD/gitea_pool/gitea_node_disk_${count.index + 1}.qcow2 7G"
-  }
-
-  depends_on = [libvirt_volume.vm_volume]
-}
+#resource "null_resource" "resize_volume" {
+#  count = var.vm_count
+#
+#  provisioner "local-exec" {
+#    # Путь скорректирован: диски теперь лежат в каталоге gitea_pool
+#    command = "qemu-img resize /home/shom/virsh_HDD/gitea_pool/gitea_node_disk_${count.index + 1}.qcow2 7G"
+#  }
+#
+#  depends_on = [libvirt_volume.vm_volume]
+#}
 
 # Фикс прав доступа: смена владельца на qemu:qemu и установка прав 660.
-resource "null_resource" "fix_permissions" {
-  count = var.vm_count
-
-  provisioner "local-exec" {
-    # Обновляем путь, чтобы он ссылался на файлы в каталоге gitea_pool
-    command = "sudo chown qemu:qemu /home/shom/virsh_HDD/gitea_pool/gitea_node_disk_${count.index + 1}.qcow2 && sudo chmod 660 /home/shom/virsh_HDD/gitea_pool/gitea_node_disk_${count.index + 1}.qcow2"
-  }
-
-  depends_on = [null_resource.resize_volume]
-}
+#resource "null_resource" "fix_permissions" {
+#  count = var.vm_count
+#
+#  provisioner "local-exec" {
+#    # Обновляем путь, чтобы он ссылался на файлы в каталоге gitea_pool
+#    command = "sudo chown qemu:qemu /home/shom/virsh_HDD/gitea_pool/gitea_node_disk_${count.index + 1}.qcow2 && sudo chmod 660 /home/shom/virsh_HDD/gitea_pool/gitea_node_disk_${count.index + 1}.qcow2"
+#  }
+#
+#  depends_on = [null_resource.resize_volume]
+#}
 
 # Генерация cloud-init ISO для каждой ВМ с использованием шаблона cloud-init.cfg
 resource "libvirt_cloudinit_disk" "commoninit" {

@@ -1,0 +1,105 @@
+[2025-03-30 23:59:34] ==== Начало настройки логов: Вс 30 мар 2025 23:59:34 +07 ====
+[2025-03-30 23:59:34] 1. Обновление /etc/logrotate.conf для ежедневной ротации с хранением 7 дней
+[2025-03-30 23:59:34]    [SUCCESS] /etc/logrotate.conf обновлён.
+[2025-03-30 23:59:34] 2. Оптимизация файлов в /etc/logrotate.d/ для ежедневной ротации
+[2025-03-30 23:59:34]    Обработка файла: /etc/logrotate.d/bootlog
+[2025-03-30 23:59:34]       [SUCCESS] Файл /etc/logrotate.d/bootlog обработан.
+[2025-03-30 23:59:34]    Обработка файла: /etc/logrotate.d/btmp
+[2025-03-30 23:59:34]       [SUCCESS] Файл /etc/logrotate.d/btmp обработан.
+[2025-03-30 23:59:34]    Обработка файла: /etc/logrotate.d/chrony
+[2025-03-30 23:59:34]       [SUCCESS] Файл /etc/logrotate.d/chrony обработан.
+[2025-03-30 23:59:34]    Обработка файла: /etc/logrotate.d/dnf
+[2025-03-30 23:59:34]       [SUCCESS] Файл /etc/logrotate.d/dnf обработан.
+[2025-03-30 23:59:34]    Обработка файла: /etc/logrotate.d/firewalld
+[2025-03-30 23:59:34]       [SUCCESS] Файл /etc/logrotate.d/firewalld обработан.
+[2025-03-30 23:59:34]    Обработка файла: /etc/logrotate.d/insights-client
+[2025-03-30 23:59:34]       [SUCCESS] Файл /etc/logrotate.d/insights-client обработан.
+[2025-03-30 23:59:34]    Обработка файла: /etc/logrotate.d/iscsiuiolog
+[2025-03-30 23:59:35]       [SUCCESS] Файл /etc/logrotate.d/iscsiuiolog обработан.
+[2025-03-30 23:59:35]    Обработка файла: /etc/logrotate.d/kvm_stat
+[2025-03-30 23:59:35]       [SUCCESS] Файл /etc/logrotate.d/kvm_stat обработан.
+[2025-03-30 23:59:35]    Обработка файла: /etc/logrotate.d/libvirtd
+[2025-03-30 23:59:35]       [SUCCESS] Файл /etc/logrotate.d/libvirtd обработан.
+[2025-03-30 23:59:35]    Обработка файла: /etc/logrotate.d/libvirtd.qemu
+[2025-03-30 23:59:35]       [SUCCESS] Файл /etc/logrotate.d/libvirtd.qemu обработан.
+[2025-03-30 23:59:35]    Обработка файла: /etc/logrotate.d/numad
+[2025-03-30 23:59:35]       [SUCCESS] Файл /etc/logrotate.d/numad обработан.
+[2025-03-30 23:59:35]    Обработка файла: /etc/logrotate.d/psacct
+[2025-03-30 23:59:35]       [SUCCESS] Файл /etc/logrotate.d/psacct обработан.
+[2025-03-30 23:59:35]    Обработка файла: /etc/logrotate.d/rsyslog
+[2025-03-30 23:59:35]       [SUCCESS] Файл /etc/logrotate.d/rsyslog обработан.
+[2025-03-30 23:59:35]    Обработка файла: /etc/logrotate.d/samba
+[2025-03-30 23:59:35]       [SUCCESS] Файл /etc/logrotate.d/samba обработан.
+[2025-03-30 23:59:35]    Обработка файла: /etc/logrotate.d/sssd
+[2025-03-30 23:59:35]       [SUCCESS] Файл /etc/logrotate.d/sssd обработан.
+[2025-03-30 23:59:35]    Обработка файла: /etc/logrotate.d/subscription-manager
+[2025-03-30 23:59:35]       [SUCCESS] Файл /etc/logrotate.d/subscription-manager обработан.
+[2025-03-30 23:59:35]    Обработка файла: /etc/logrotate.d/wpa_supplicant
+[2025-03-30 23:59:35]       [SUCCESS] Файл /etc/logrotate.d/wpa_supplicant обработан.
+[2025-03-30 23:59:35]    Обработка файла: /etc/logrotate.d/wtmp
+[2025-03-30 23:59:35]       [SUCCESS] Файл /etc/logrotate.d/wtmp обработан.
+[2025-03-30 23:59:35] 3. Настройка systemd-journald (/etc/systemd/journald.conf)
+[2025-03-30 23:59:35]    [SUCCESS] /etc/systemd/journald.conf обновлён.
+[2025-03-30 23:59:35]    [SUCCESS] systemd-journald перезапущен.
+[2025-03-30 23:59:35] 4. Создание cron-задачи для очистки файлов старше 7 дней (/etc/cron.daily/clean_old_logs)
+[2025-03-30 23:59:35]    [SUCCESS] Cron-задача создана.
+[2025-03-30 23:59:35] 5. Принудительный запуск logrotate для проверки конфигурации
+error: destination /var/log/sssd/sssd_kcm.log-20250330 already exists, skipping rotation
+error: destination /var/log/rhsm/rhsmcertd.log-20250330 already exists, renaming to /var/log/rhsm/rhsmcertd.log-20250330-2025033023.backup
+error: destination /var/log/rhsm/rhsm.log-20250330 already exists, renaming to /var/log/rhsm/rhsm.log-20250330-2025033023.backup
+[2025-03-30 23:59:35]    [ERROR] Проблемы при запуске logrotate.
+[2025-03-30 23:59:35] ==== Настройка логов завершена: Вс 30 мар 2025 23:59:35 +07 ====
+[2025-03-31 00:02:11] ==== Начало настройки логов: Пн 31 мар 2025 00:02:11 +07 ====
+[2025-03-31 00:02:11] 1. Обновление /etc/logrotate.conf для ежедневной ротации с хранением 7 дней
+[2025-03-31 00:02:11]    [SUCCESS] /etc/logrotate.conf обновлён.
+[2025-03-31 00:02:11] 2. Оптимизация файлов в /etc/logrotate.d/ для ежедневной ротации
+[2025-03-31 00:02:11]    Обработка файла: /etc/logrotate.d/bootlog
+[2025-03-31 00:02:11]       [SUCCESS] Файл /etc/logrotate.d/bootlog обработан.
+[2025-03-31 00:02:11]    Обработка файла: /etc/logrotate.d/btmp
+[2025-03-31 00:02:11]       [SUCCESS] Файл /etc/logrotate.d/btmp обработан.
+[2025-03-31 00:02:11]    Обработка файла: /etc/logrotate.d/chrony
+[2025-03-31 00:02:11]       [SUCCESS] Файл /etc/logrotate.d/chrony обработан.
+[2025-03-31 00:02:11]    Обработка файла: /etc/logrotate.d/dnf
+[2025-03-31 00:02:11]       [SUCCESS] Файл /etc/logrotate.d/dnf обработан.
+[2025-03-31 00:02:11]    Обработка файла: /etc/logrotate.d/firewalld
+[2025-03-31 00:02:11]       [SUCCESS] Файл /etc/logrotate.d/firewalld обработан.
+[2025-03-31 00:02:11]    Обработка файла: /etc/logrotate.d/insights-client
+[2025-03-31 00:02:11]       [SUCCESS] Файл /etc/logrotate.d/insights-client обработан.
+[2025-03-31 00:02:11]    Обработка файла: /etc/logrotate.d/iscsiuiolog
+[2025-03-31 00:02:11]       [SUCCESS] Файл /etc/logrotate.d/iscsiuiolog обработан.
+[2025-03-31 00:02:11]    Обработка файла: /etc/logrotate.d/kvm_stat
+[2025-03-31 00:02:11]       [SUCCESS] Файл /etc/logrotate.d/kvm_stat обработан.
+[2025-03-31 00:02:11]    Обработка файла: /etc/logrotate.d/libvirtd
+[2025-03-31 00:02:11]       [SUCCESS] Файл /etc/logrotate.d/libvirtd обработан.
+[2025-03-31 00:02:11]    Обработка файла: /etc/logrotate.d/libvirtd.qemu
+[2025-03-31 00:02:11]       [SUCCESS] Файл /etc/logrotate.d/libvirtd.qemu обработан.
+[2025-03-31 00:02:11]    Обработка файла: /etc/logrotate.d/numad
+[2025-03-31 00:02:11]       [SUCCESS] Файл /etc/logrotate.d/numad обработан.
+[2025-03-31 00:02:11]    Обработка файла: /etc/logrotate.d/psacct
+[2025-03-31 00:02:11]       [SUCCESS] Файл /etc/logrotate.d/psacct обработан.
+[2025-03-31 00:02:11]    Обработка файла: /etc/logrotate.d/rsyslog
+[2025-03-31 00:02:11]       [SUCCESS] Файл /etc/logrotate.d/rsyslog обработан.
+[2025-03-31 00:02:11]    Обработка файла: /etc/logrotate.d/samba
+[2025-03-31 00:02:11]       [SUCCESS] Файл /etc/logrotate.d/samba обработан.
+[2025-03-31 00:02:11]    Обработка файла: /etc/logrotate.d/sssd
+[2025-03-31 00:02:11]       [SUCCESS] Файл /etc/logrotate.d/sssd обработан.
+[2025-03-31 00:02:11]    Обработка файла: /etc/logrotate.d/subscription-manager
+[2025-03-31 00:02:11]       [SUCCESS] Файл /etc/logrotate.d/subscription-manager обработан.
+[2025-03-31 00:02:11]    Обработка файла: /etc/logrotate.d/wpa_supplicant
+[2025-03-31 00:02:11]       [SUCCESS] Файл /etc/logrotate.d/wpa_supplicant обработан.
+[2025-03-31 00:02:11]    Обработка файла: /etc/logrotate.d/wtmp
+[2025-03-31 00:02:11]       [SUCCESS] Файл /etc/logrotate.d/wtmp обработан.
+[2025-03-31 00:02:11] 3. Настройка systemd-journald (/etc/systemd/journald.conf)
+[2025-03-31 00:02:11]    [SUCCESS] /etc/systemd/journald.conf обновлён.
+[2025-03-31 00:02:11]    [SUCCESS] systemd-journald перезапущен.
+[2025-03-31 00:02:11] 4. Создание cron-задачи для очистки файлов старше 7 дней (/etc/cron.daily/clean_old_logs)
+[2025-03-31 00:02:11]    [SUCCESS] Cron-задача создана.
+[2025-03-31 00:02:11] 5. Принудительный запуск logrotate для проверки конфигурации
+error: destination /var/log/btmp-20250331.gz already exists, skipping rotation
+error: destination /var/log/cron-20250331.gz already exists, skipping rotation
+error: destination /var/log/maillog-20250331.gz already exists, skipping rotation
+error: destination /var/log/messages-20250331.gz already exists, skipping rotation
+error: destination /var/log/secure-20250331.gz already exists, skipping rotation
+error: destination /var/log/spooler-20250331.gz already exists, skipping rotation
+[2025-03-31 00:02:11]    [SUCCESS] logrotate отработал корректно.
+[2025-03-31 00:02:11] ==== Настройка логов завершена: Пн 31 мар 2025 00:02:11 +07 ====

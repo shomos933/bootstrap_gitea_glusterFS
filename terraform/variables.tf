@@ -25,9 +25,9 @@ variable "vm_vcpu" {
 }
 
 variable "vm_image_path" {
-  description = "Путь к образу Debian minimal в формате qcow2"
+  description = "Путь к образу Ubuntu 24.04 server cloud (qcow2)"
   type        = string
-  default     = "/home/shom/OS_images/debian-12-nocloud-amd64-20250316-2053.qcow2"
+  default     = "/home/shom/OS_images/ubuntu-24.04-server-cloudimg-amd64.img"
 }
 
 variable "static_ips" {
@@ -39,6 +39,6 @@ variable "static_ips" {
 variable "default_user" {
   description = "Имя пользователя для подключения, создаваемого через cloud-init"
   type        = string
-  default     = "shom"
+  default     = "ubuntu"
 }
 
