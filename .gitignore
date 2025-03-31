@@ -3,6 +3,7 @@ terraform/terraform.tfstate.backup
 
 terraform/.terraform.lock.hcl
 terraform/.terraform/providers/
+ansible/deploy_project.log
 
 cleaner.log
 master.log
