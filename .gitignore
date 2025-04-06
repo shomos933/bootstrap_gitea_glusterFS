@@ -1,9 +1,3 @@
-terraform/terraform.tfstate
-terraform/terraform.tfstate.backup
-terraform/.terraform.tfstate.lock.info
-terraform/.terraform.lock.hcl
-terraform/.terraform/providers/
-ansible/deploy_project.log
-
+terraform/.terraform/
 cleaner.log
 master.log
