@@ -7,7 +7,7 @@
 #
 # Логи работы данного скрипта будут записаны в файле deploy_project.log в корне проекта.
 
-LOGFILE="$(dirname "$0")/../../../deploy_project.log"
+LOGFILE="/setup_log_management.log"
 
 # Функция логирования с меткой времени
 log() {

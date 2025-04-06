@@ -103,6 +103,10 @@
   register: log_script_result
   changed_when: false
 
+- name: Вывести результат работы скрипта настройки логов
+  debug:
+    msg: "{{ log_script_result.stdout_lines }}"
+
 # Обновление known_hosts для всех узлов с использованием ssh-keyscan
 - name: Обновить known_hosts для узлов
   known_hosts:
