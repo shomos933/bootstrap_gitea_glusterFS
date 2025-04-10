@@ -45,7 +45,11 @@ project/
 │        │         └── main.yml         # Задачи по установке и настройке GlusterFS
 │        └── gitea/
 │             ├── tasks/
-│             │         └── main.yml     # Задачи по установке и настройке Gitea
+│             │    └── main.yml     # Задачи по установке и настройке Gitea
+│             ├── files/
+│             │    └── app.ini.backup 
+│             │    └── gitea_data_backup.tar.gz
+│             │    └── gitea_repos_backup.tar.gz
 │             └── handlers/
 │                       └── main.yml     # Хэндлер для перезапуска Gitea
 └── master.sh             # Мастер-скрипт, выполняющий процесс (Terraform → Ansible)

@@ -5,3 +5,5 @@ terraform/terraform.tfstate.backup
 terraform/.terraform.lock.hcl  
 terraform/.terraform.tfstate.lock.info 
 terraform/terraform.tfstate  
+terraform/.main.tf.swo
+.master.sh.swp

@@ -47,7 +47,21 @@
     - /var/lib/gitea/indexers
     - /var/lib/gitea/public
     - /var/lib/gitea/log
-    - /var/lib/gitea/gitea-repositories
+
+- name: Смонтировать GlusterFS том для Gitea
+  mount:
+    path: /var/lib/gitea/gitea-repositories
+    src: "gitea-node-1:/gitea-repos"
+    fstype: glusterfs
+    opts: "defaults,_netdev,x-systemd.automount"
+    state: mounted
+
+- name: Обновить запись GlusterFS в /etc/fstab
+  lineinfile:
+    dest: /etc/fstab
+    regexp: '^gitea-node-1:/gitea-repos'
+    line: "gitea-node-1,gitea-node-2:/gitea-repos /var/lib/gitea/gitea-repositories glusterfs defaults,_netdev,x-systemd.automount 0 0"
+  become: yes
 
 - name: Создать директорию /etc/gitea
   file:
@@ -58,36 +72,34 @@
     mode: '0755'
   become: yes
 
-- name: Скопировать конфигурацию Gitea
+- name: Разархивировать репозитории в GlusterFS
+  unarchive:
+    src: "files/gitea_repos_backup.tar.gz"
+    dest: "/var/lib/gitea/gitea-repositories"
+    extra_opts: [--strip-components=4]   # Подберите число в зависимости от структуры архива
+  become: yes
+
+- name: Разархивировать базу данных
+  unarchive:
+    src: "files/gitea_data_backup.tar.gz"
+    dest: "/"
+  become: yes
+
+- name: Скопировать конфигурационный файл Gitea
   copy:
-    dest: /etc/gitea/app.ini
-    content: |
-      [server]
-      HTTP_PORT = 3000
-      ROOT_URL = http://{{ ansible_default_ipv4.address }}:3000/
-      RUN_MODE = prod
+    src: "files/app.ini.backup"
+    dest: "/etc/gitea/app.ini"
+  become: yes
 
-      [database]
-      DB_TYPE = sqlite3
-      PATH    = /var/lib/gitea/data/gitea.db
-
-      [repository]
-      ROOT = /var/lib/gitea/gitea-repositories
-
-      [security]
-      INSTALL_LOCK = true  # Предотвращает повторный запуск установки
-
-      [admin]
-      # Раскомментируйте и настройте для автоматического создания админа (менее безопасно)
-      USER_NAME = shom 
-      PASSWORD = 556611
-      # EMAIL = your_admin_email
-
-- name: Изменить владельца  /etc/gitea/app.ini на git
+- name: Обновить права на директории Gitea
   file:
-    path: /etc/gitea/app.ini
+    path: "{{ item }}"
     owner: git
     group: git
+    recurse: yes
+  loop:
+    - "/var/lib/gitea"
+    - "/etc/gitea"
   become: yes
   notify: Restart Gitea
 
@@ -116,12 +128,4 @@
     name: gitea
     state: restarted
     enabled: yes
-
-- name: Смонтировать GlusterFS том для Gitea
-  mount:
-    path: /var/lib/gitea/gitea-repositories
-    src: "gitea-node-1:/gitea-repos"
-    fstype: glusterfs
-    opts: defaults
-    state: mounted
 
