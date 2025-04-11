@@ -1,8 +1,30 @@
+- name: Общее для всех нод
+  hosts: gitea_nodes,nfs_server
+  become: yes
+  roles:
+    - common
+
 - name: Настройка серверов для Gitea с GlusterFS
   hosts: gitea_nodes
   become: yes
   roles:
-    - common
     - glusterfs
     - gitea
 
+- name: Настройка ноды nfs
+  hosts: nfs_server
+  become: yes
+  roles:
+    - nfs-server
+
+- name: Ставим дженкинс мастер на gitea-node-1
+  hosts: jenkins_master
+  become: yes
+  roles:
+    - jenkins-master
+
+- name: Ставим дженкинс slave на gitea-node-2
+  hosts: jenkins_slave
+  become: yes
+  roles:
+    - jenkins-slave  

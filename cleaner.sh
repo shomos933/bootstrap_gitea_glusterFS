@@ -18,6 +18,34 @@ LOGFILE="cleaner.log"
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOGFILE"
 }
+# ==============================================================
+# ЗАПРОС ПОДТВЕРЖДЕНИЯ ПЕРЕД ЗАПУСКОМ
+# ==============================================================
+echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+echo "ВНИМАНИЕ! Этот скрипт УДАЛИТ следующие ресурсы:"
+echo " - Виртуальные машины: gitea-node-1, gitea-node-2, nfs-node"
+echo " - Пулы libvirt: gitea_pool, nfs_pool"
+echo " - Содержимое директорий пулов (ПРОВЕРЬТЕ ПУТИ!):"
+echo "   - /home/shom/virsh_HDD/gitea_pool"
+echo "   - /var/lib/libvirt/nfs_pool"
+echo " - DHCP аренды для IP: 192.168.122.101, 192.168.122.102, 192.168.122.103"
+echo " - Записи SSH known_hosts для этих IP"
+echo " - Опционально: файлы состояния Terraform (terraform.tfstate*)"
+echo ""
+echo "Это действие НЕОБРАТИМО."
+echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+read -p "Для подтверждения удаления введите 'Yes': " CONFIRMATION
+
+if [[ "$CONFIRMATION" != "Yes" ]]; then
+    echo "Отмена операции. Ресурсы не будут удалены."
+    exit 1
+fi
+
+echo "Подтверждение получено. Начинаю очистку..."
+# ==============================================================
+
+# Очистка лог-файла перед новым запуском (опционально)
+echo > "$LOGFILE"
 
 if [ "$EUID" -ne 0 ]; then
     log "WARNING: Рекомендуется запускать этот скрипт от root или через sudo."
@@ -26,8 +54,8 @@ fi
 log "=== Начало очистки через cleaner.sh ==="
 
 # 1. Удаление виртуальных машин
-log "Удаляю домены (виртуальные машины) gitea-node-1 и gitea-node-2..."
-for domain in gitea-node-1 gitea-node-2; do
+log "Удаляю домены (виртуальные машины): gitea-node-1, gitea-node-2 и ноду nfs-node (если существует)..."
+for domain in gitea-node-1 gitea-node-2 nfs-node; do
     if virsh dominfo "$domain" &>/dev/null; then
         sudo virsh destroy "$domain" 2>/dev/null
         sudo virsh undefine "$domain" --remove-all-storage 2>/dev/null
@@ -48,6 +76,16 @@ else
 fi
 rm -rf /home/shom/virsh_HDD/gitea_pool
 
+# 2b. Если создан отдельный пул для NFS, удаляем его также
+if virsh pool-info nfs_pool &>/dev/null; then
+    sudo virsh pool-destroy nfs_pool 2>/dev/null
+    sudo virsh pool-undefine nfs_pool 2>/dev/null
+    log "Пул nfs_pool удалён."
+else
+    log "Пул nfs_pool не найден."
+fi
+rm -rf /var/lib/libvirt/nfs_pool
+
 # 3. Очистка DHCP-лизов для сети по умолчанию
 #if [ -f /var/lib/libvirt/dnsmasq/default.leases ]; then
 #   log "Удаляю старые DHCP-лизы из /var/lib/libvirt/dnsmasq/default.leases"
@@ -58,14 +96,14 @@ rm -rf /home/shom/virsh_HDD/gitea_pool
 #fi
 
 # 3. Очистка DHCP-лизов для сети по умолчанию
-log "Очищаю DHCP-лизы для IP 192.168.122.101 и 192.168.122.102..."
+log "Очищаю DHCP-лизы для IP 192.168.122.101 и 192.168.122.102...192.168.122.103..."
 if [ -f /var/lib/libvirt/dnsmasq/virbr0.status ]; then
     # Создать резервную копию
     cp /var/lib/libvirt/dnsmasq/virbr0.status /var/lib/libvirt/dnsmasq/virbr0.status.bak
     
     # Вариант с jq (если установлен)
     if command -v jq &> /dev/null; then
-        jq '[.[] | select(.["ip-address"] != "192.168.122.101" and .["ip-address"] != "192.168.122.102")]' /var/lib/libvirt/dnsmasq/virbr0.status.bak > /var/lib/libvirt/dnsmasq/virbr0.status
+        jq '[.[] | select(.["ip-address"] != "192.168.122.101" and .["ip-address"] != "192.168.122.102" and .["ip-address"] != "192.168.122.103")]' /var/lib/libvirt/dnsmasq/virbr0.status.bak > /var/lib/libvirt/dnsmasq/virbr0.status
     else
         # Простой вариант - просто очистить все
         echo "[]" > /var/lib/libvirt/dnsmasq/virbr0.status
@@ -79,9 +117,10 @@ else
 fi
 
 # 4. Удаление старых записей в known_hosts
-log "Удаляю старые записи в known_hosts для IP 192.168.122.101 и 192.168.122.102..."
+log "Удаляю старые записи в known_hosts для IP 192.168.122.101 и 192.168.122.102...192.168.122.103..."
 sudo ssh-keygen -R 192.168.122.101 2>/dev/null
 sudo ssh-keygen -R 192.168.122.102 2>/dev/null
+sudo ssh-keygen -R 192.168.122.103 2>/dev/null
 # Если known_hosts находится в другом месте (например, /root/.ssh/known_hosts), можно также выполнить:
 # sudo ssh-keygen -R 192.168.122.101 -f /root/.ssh/known_hosts
 # sudo ssh-keygen -R 192.168.122.102 -f /root/.ssh/known_hosts

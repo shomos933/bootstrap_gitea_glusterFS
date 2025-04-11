@@ -88,8 +88,6 @@
 - name: Отключить sleep, suspend, hibernate
   command: systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
 
-
-
 # Копирование скрипта настройки логов (логи будут сохраняться в корне проекта)
 - name: Копировать скрипт настройки логов
   copy:

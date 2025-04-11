@@ -1,0 +1,115 @@
+---
+- name: Установить Java 17
+  apt:
+    name: openjdk-17-jdk
+    state: present
+  become: yes
+  when: ansible_os_family == "Debian"
+
+- name: Установить Java 17 (RedHat)
+  yum:
+    name: java-17-openjdk
+    state: present
+  become: yes
+  when: ansible_os_family == "RedHat"
+
+- name: Настроить переменную JAVA_HOME для Jenkins
+  lineinfile:
+    path: /etc/default/jenkins
+    regexp: '^JAVA_HOME='
+    line: 'JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64'
+    create: yes
+  become: yes
+  when: ansible_os_family == "Debian"
+
+- name: Настроить переменную JAVA_HOME для Jenkins (RedHat)
+  lineinfile:
+    path: /etc/default/jenkins
+    regexp: '^JAVA_HOME='
+    line: 'JAVA_HOME=/usr/lib/jvm/java-17-openjdk'
+    create: yes
+  become: yes
+  when: ansible_os_family == "RedHat"
+
+- name: Убедиться, что директория для ключей существует
+  file:
+    path: /usr/share/keyrings
+    state: directory
+    mode: '0755'
+  become: yes
+
+- name: Задать переменные для GPG ключа Jenkins
+  set_fact:
+    # ИСПОЛЬЗУЕМ АКТУАЛЬНЫЙ URL КЛЮЧА (проверьте на pkg.jenkins.io, если есть сомнения)
+    jenkins_key_url: "https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key"
+    jenkins_keyring_path: "/usr/share/keyrings/jenkins-keyring.gpg"
+
+- name: Удалить старый файл ключа Jenkins (для гарантии чистоты)
+  file:
+    path: "{{ jenkins_keyring_path }}"
+    state: absent
+  become: yes
+
+- name: Скачать и добавить АКТУАЛЬНЫЙ GPG ключ Jenkins
+  shell: >
+    curl -fsSL {{ jenkins_key_url }} | gpg --dearmor -o {{ jenkins_keyring_path }} &&
+    chmod 0644 {{ jenkins_keyring_path }}
+  args:
+    # Добавляем creates: обратно для идемпотентности после первого успешного скачивания
+    creates: "{{ jenkins_keyring_path }}"
+  register: download_key_result
+  changed_when: download_key_result.rc == 0 # Можно упростить, полагаясь на creates
+  become: yes
+
+- name: Добавить репозиторий Jenkins с указанием ключа
+  apt_repository:
+    # Указываем путь к файлу ключа через signed-by
+    repo: "deb [signed-by={{ jenkins_keyring_path }}] https://pkg.jenkins.io/debian-stable binary/"
+    state: present
+    filename: "jenkins" # Создаст /etc/apt/sources.list.d/jenkins.list
+    update_cache: no 
+  become: yes
+
+- name: Очистить кеш APT перед обновлением (для решения проблем с кешем)
+  shell: rm -rf /var/lib/apt/lists/* 2> /dev/null
+  become: yes
+  changed_when: false # Считаем, что сама очистка не меняет состояние системы с точки зрения идемпотентности
+
+- name: Обновить кеш APT ПОСЛЕ очистки и добавления репозитория
+  apt:
+    update_cache: yes
+    cache_valid_time: 0 # Принудительно обновить
+  become: yes
+
+- name: Установить Jenkins
+  apt:
+    name: jenkins
+    state: present
+  become: yes
+
+- name: Настроить Jenkins Home на NFS
+  mount:
+    path: /var/jenkins_home
+    src: "192.168.122.103:/var/jenkins_home"
+    fstype: nfs
+    opts: "defaults,_netdev"
+    state: mounted
+  become: yes
+
+- name: Скопировать JCasC конфигурацию на NFS-сервер
+  copy:
+    src: files/casc.yml
+    dest: /var/jenkins_home/jenkins.yaml
+    owner: jenkins
+    group: jenkins
+    mode: '0644'
+  become: yes
+  delegate_to: 192.168.122.103  # Выполнить на NFS-сервере
+
+- name: Запустить Jenkins
+  systemd:
+    name: jenkins
+    state: restarted
+    enabled: yes
+  become: yes
+

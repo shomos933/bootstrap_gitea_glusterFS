@@ -205,7 +205,7 @@ sleep 30  # Ожидание 30 секунд
 
 ### 7. Обновление known_hosts для созданных серверов
 log "Обновление known_hosts..."
-for ip in 192.168.122.101 192.168.122.102; do
+for ip in 192.168.122.101 192.168.122.102 192.168.122.103; do
   ssh-keyscan -H "$ip" >> ~/.ssh/known_hosts 2>/dev/null
 done
 

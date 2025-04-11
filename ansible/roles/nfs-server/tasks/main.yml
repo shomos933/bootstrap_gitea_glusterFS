@@ -1,0 +1,70 @@
+---
+- name: Установить NFS-сервер (Debian/Ubuntu)
+  apt:
+    name: nfs-kernel-server
+    state: present
+  when: ansible_os_family == "Debian"
+  become: yes
+
+- name: Установить NFS-сервер (RHEL/CentOS)
+  yum:
+    name: nfs-utils
+    state: present
+  when: ansible_os_family == "RedHat"
+  become: yes
+
+- name: Убедиться, что группа 'jenkins' существует с фиксированным GID
+  group:
+    name: jenkins
+    gid: 1001  # Используйте конкретный GID
+    system: yes
+  become: yes
+
+- name: Убедиться, что пользователь 'jenkins' существует с фиксированным UID
+  user:
+    name: jenkins
+    uid: 1001  # Используйте конкретный UID
+    group: jenkins
+    system: yes
+    create_home: yes
+    shell: /usr/sbin/nologin
+  become: yes
+
+- name: Создать каталог для Jenkins Home
+  file:
+    path: /var/jenkins_home
+    state: directory
+    owner: jenkins
+    group: jenkins
+    mode: '0755'
+    recurse: yes  # Рекурсивно устанавливаем права на все вложенные файлы
+  become: yes
+
+- name: Создать директорию /etc/exports.d (если не существует)
+  file:
+    path: /etc/exports.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  become: yes
+
+- name: Настроить экспорт NFS для Jenkins Home
+  copy:
+    dest: /etc/exports.d/jenkins_home.exports
+    content: "/var/jenkins_home *(rw,sync,no_subtree_check,no_root_squash,all_squash,anonuid=1001,anongid=1001)"
+    owner: root
+    group: root
+    mode: '0644'
+  become: yes
+
+- name: Обновить экспорты NFS
+  command: exportfs -ra
+  become: yes
+
+- name: Перезапустить NFS-сервис
+  service:
+    name: "{{ 'nfs-kernel-server' if ansible_os_family == 'Debian' else 'nfs-server' }}"
+    state: restarted
+    enabled: yes
+  become: yes

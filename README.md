@@ -30,7 +30,8 @@ project/
 │   ├── main.tf            # Конфигурация Terraform для создания ВМ с cloud-init
 │   ├── variables.tf       # Объявление переменных (статические IP, имя пользователя и т.п.)
 │   ├── outputs.tf         # Вывод созданных ресурсов (имена ВМ)
-│   └── cloud-init.cfg     # Шаблон cloud-init для первичной настройки ВМ
+│   ├── nfs.tf             # Конфигурация для создания ноды NFS
+│   └── cloud-init.cfg     # Шаблон cloud-init для первичной настройки всех ВМ
 ├── ansible/
 │   ├── inventory.ini      # Инвентори-файл с IP-адресами созданных ВМ
 │   ├── playbook.yml       # Основной Ansible-плейбук, запускающий роли
@@ -43,13 +44,27 @@ project/
 │        ├── glusterfs/
 │        │    └── tasks/
 │        │         └── main.yml         # Задачи по установке и настройке GlusterFS
+│        ├── nfs-server/
+│        │    └── tasks/
+│        │         └── main.yml         # Задачи по установке и настройке NFS
+│        ├── jenkins-master/
+│        │    ├── tasks/
+│        │    │     └── main.yml        # Задачи по установке и настройке jenkins мастер узла
+│        │    └── files/
+│        │         └── casc.yml         # Конфигурация для дженкинса с токеном дефолт для слейва
+│        ├── jenkins-slave/
+│        │    └── tasks/
+│        │         └── main.yml         # Задачи по установке и настройке jenkins slave узла
+│        ├── glusterfs/
+│        │    └── tasks/
+│        │         └── main.yml         # Задачи по установке и настройке GlusterFS
 │        └── gitea/
 │             ├── tasks/
-│             │    └── main.yml     # Задачи по установке и настройке Gitea
+│             │   └── main.yml         # Задачи по установке и настройке Gitea
 │             ├── files/
-│             │    └── app.ini.backup 
-│             │    └── gitea_data_backup.tar.gz
-│             │    └── gitea_repos_backup.tar.gz
+│             │    └── app.ini.backup             # Дефолтный конфиг
+│             │    └── gitea_data_backup.tar.gz   # база данных которая содержит одного готового пользователя shom
+│             │    └── gitea_repos_backup.tar.gz  # Папка с готовым репозиторием kub-cluster
 │             └── handlers/
 │                       └── main.yml     # Хэндлер для перезапуска Gitea
 └── master.sh             # Мастер-скрипт, выполняющий процесс (Terraform → Ansible)

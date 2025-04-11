@@ -1,0 +1,92 @@
+---
+- name: Установить Java 17
+  apt:
+    name: openjdk-17-jdk
+    state: present
+  become: yes
+  when: ansible_os_family == "Debian"
+
+- name: Установить Java 17 (RedHat)
+  yum:
+    name: java-17-openjdk
+    state: present
+  become: yes
+  when: ansible_os_family == "RedHat"
+
+- name: Настроить переменную JAVA_HOME для Jenkins
+  lineinfile:
+    path: /etc/default/jenkins
+    regexp: '^JAVA_HOME='
+    line: 'JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64'
+    create: yes
+  become: yes
+  when: ansible_os_family == "Debian"
+
+- name: Настроить переменную JAVA_HOME для Jenkins (RedHat)
+  lineinfile:
+    path: /etc/default/jenkins
+    regexp: '^JAVA_HOME='
+    line: 'JAVA_HOME=/usr/lib/jvm/java-17-openjdk'
+    create: yes
+  become: yes
+  when: ansible_os_family == "RedHat"
+
+    # --- Добавлено: Создание группы и пользователя jenkins ---
+- name: Убедиться, что группа 'jenkins' существует
+  ansible.builtin.group: # Используем полное имя модуля
+    name: jenkins
+    state: present
+    system: yes # Создать как системную группу
+  become: yes
+
+- name: Убедиться, что пользователь 'jenkins' существует
+  ansible.builtin.user: # Используем полное имя модуля
+    name: jenkins
+    group: jenkins    # Установить основную группу
+    # home: /var/jenkins_agent # Можно явно задать домашнюю директорию
+    shell: /bin/false # Запретить логин в оболочку (безопаснее для сервисного аккаунта)
+    state: present
+    system: yes # Создать как системного пользователя
+  become: yes
+# --- Конец добавленных задач ---
+
+- name: Создать каталог для агента Jenkins
+  file:
+    path: /var/jenkins_agent
+    state: directory
+    owner: jenkins
+    group: jenkins
+    mode: '0755'
+  become: yes
+
+- name: Скачать jenkins-agent.jar
+  get_url:
+    url: "http://{{ jenkins_master_host }}:8080/jnlpJars/agent.jar"
+    dest: /var/jenkins_agent/agent.jar
+    mode: '0644'
+  become: yes
+
+- name: Запустить агента Jenkins (как сервис)
+  copy:
+    dest: /etc/systemd/system/jenkins-agent.service
+    content: |
+      [Unit]
+      Description=Jenkins Agent
+      After=network.target
+      [Service]
+      User=jenkins
+      Group=jenkins
+      WorkingDirectory=/var/jenkins_agent
+      ExecStart=/usr/bin/java -jar /var/jenkins_agent/agent.jar -jnlpUrl http://{{ jenkins_master_host }}:8080/computer/{{ inventory_hostname }}/slave-agent.jnlp -secret {{ jenkins_agent_secret }}
+      Restart=always
+      [Install]
+      WantedBy=multi-user.target
+  become: yes
+
+- name: Запустить и включить сервис Jenkins Agent
+  systemd:
+    name: jenkins-agent
+    state: started
+    enabled: yes
+  become: yes
+

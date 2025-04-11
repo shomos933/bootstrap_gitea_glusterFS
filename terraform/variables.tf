@@ -42,3 +42,19 @@ variable "default_user" {
   default     = "ubuntu"
 }
 
+// Параметры для NFS-ВМ
+variable "nfs_ip" {
+  description = "Статический IP для NFS узла"
+  type        = string
+  default     = "192.168.122.103"
+}
+variable "nfs_memory" {
+  description = "Оперативная память для NFS-ВМ (в МБ)"
+  type        = number
+  default     = 512
+}
+variable "nfs_vcpu" {
+  description = "Количество виртуальных CPU для NFS-ВМ"
+  type        = number
+  default     = 1
+}

@@ -1,0 +1,24 @@
+jenkins:
+  systemMessage: "Jenkins configured via JCasC"
+  numExecutors: 2
+unclassified:
+  location:
+    url: "http://{{ jenkins_master_host }}:8080/"
+nodes:
+  - permanent:
+      name: "jenkins-slave-node"
+      remoteFS: "/var/jenkins_home"
+      numExecutors: 1
+      mode: EXCLUSIVE
+      launcher:
+        jnlp:
+          workDirSettings:
+            disabled: false
+            internalDir: "agent"
+            failIfWorkDirIsMissing: false
+      retentionStrategy:
+        always: {}
+      # Принудительно задаем фиксированный секрет (для теста)
+      # (В реальном мире секрет генерируется Jenkins автоматически, но для тестового сценария можно его задать)
+      agentSecret: "my_predefined_secret_123"
+
