@@ -1,14 +1,14 @@
 ---
-- name: Установить Java 17
+- name: Установить Java 21
   apt:
-    name: openjdk-17-jdk
+    name: openjdk-21-jdk
     state: present
   become: yes
   when: ansible_os_family == "Debian"
 
-- name: Установить Java 17 (RedHat)
+- name: Установить Java 21 (RedHat)
   yum:
-    name: java-17-openjdk
+    name: java-21-openjdk
     state: present
   become: yes
   when: ansible_os_family == "RedHat"
@@ -17,7 +17,7 @@
   lineinfile:
     path: /etc/default/jenkins
     regexp: '^JAVA_HOME='
-    line: 'JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64'
+    line: 'JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64'
     create: yes
   become: yes
   when: ansible_os_family == "Debian"
@@ -26,7 +26,7 @@
   lineinfile:
     path: /etc/default/jenkins
     regexp: '^JAVA_HOME='
-    line: 'JAVA_HOME=/usr/lib/jvm/java-17-openjdk'
+    line: 'JAVA_HOME=/usr/lib/jvm/java-21-openjdk'
     create: yes
   become: yes
   when: ansible_os_family == "RedHat"
@@ -40,53 +40,42 @@
   become: yes
 
 - name: Убедиться, что пользователь 'jenkins' существует
-  ansible.builtin.user: # Используем полное имя модуля
+  ansible.builtin.user:
     name: jenkins
-    group: jenkins    # Установить основную группу
-    # home: /var/jenkins_agent # Можно явно задать домашнюю директорию
-    shell: /bin/false # Запретить логин в оболочку (безопаснее для сервисного аккаунта)
+    group: jenkins
+    home: /var/lib/jenkins
+    shell: /bin/bash
     state: present
-    system: yes # Создать как системного пользователя
+    system: yes
   become: yes
-# --- Конец добавленных задач ---
 
-- name: Создать каталог для агента Jenkins
+# Настройка домашней директории и SSH для пользователя jenkins
+- name: Создать домашнюю директорию для jenkins
   file:
-    path: /var/jenkins_agent
+    path: /var/lib/jenkins
     state: directory
     owner: jenkins
     group: jenkins
     mode: '0755'
   become: yes
 
-- name: Скачать jenkins-agent.jar
-  get_url:
-    url: "http://{{ jenkins_master_host }}:8080/jnlpJars/agent.jar"
-    dest: /var/jenkins_agent/agent.jar
-    mode: '0644'
+- name: Создать .ssh директорию для пользователя jenkins
+  file:
+    path: /var/lib/jenkins/.ssh
+    state: directory
+    owner: jenkins
+    group: jenkins
+    mode: '0700'
   become: yes
 
-- name: Запустить агента Jenkins (как сервис)
-  copy:
-    dest: /etc/systemd/system/jenkins-agent.service
-    content: |
-      [Unit]
-      Description=Jenkins Agent
-      After=network.target
-      [Service]
-      User=jenkins
-      Group=jenkins
-      WorkingDirectory=/var/jenkins_agent
-      ExecStart=/usr/bin/java -jar /var/jenkins_agent/agent.jar -jnlpUrl http://{{ jenkins_master_host }}:8080/computer/{{ inventory_hostname }}/slave-agent.jnlp -secret {{ jenkins_agent_secret }}
-      Restart=always
-      [Install]
-      WantedBy=multi-user.target
-  become: yes
+- debug:
+    msg: "Playbook dir: {{ playbook_dir }}"
+  run_once: true
+  delegate_to: localhost
 
-- name: Запустить и включить сервис Jenkins Agent
-  systemd:
-    name: jenkins-agent
-    state: started
-    enabled: yes
+- name: Добавить публичный SSH ключ в authorized_keys для пользователя jenkins
+  authorized_key:
+    user: jenkins
+    key: "{{ lookup('file', 'roles/jenkins-master/files/jenkins-slave-id_rsa.pub') }}"
   become: yes
 

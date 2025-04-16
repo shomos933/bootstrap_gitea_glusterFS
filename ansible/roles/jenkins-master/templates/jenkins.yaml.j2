@@ -1,0 +1,40 @@
+jenkins:
+  systemMessage: "Jenkins configured via JCasC with SSH Launcher"
+  numExecutors: 2
+
+  nodes:
+    - permanent:
+        name: "jenkins-slave-node"
+        remoteFS: "/var/lib/jenkins" 
+        numExecutors: 1 
+        mode: EXCLUSIVE 
+        launcher:
+          ssh:
+            host: "gitea-node-2" 
+            port: 22
+            credentialsId: "jenkins-slave-ssh" 
+            launchTimeoutSeconds: 60
+        retentionStrategy:
+          always: {} # Всегда держать подключенным
+unclassified:
+  location:
+    url: "http://{{ jenkins_master_host }}:8080/"
+
+credentials:
+  system:
+    domainCredentials:
+      - domain:
+          name: "example.com"
+          description: "Example domain"
+        credentials:
+          - basicSSHUserPrivateKey:
+              scope: GLOBAL
+              id: "jenkins-slave-ssh"
+              username: "jenkins"
+              description: "SSH credentials for Jenkins slave agent"
+              passphrase: ""
+              privateKeySource:
+                directEntry:
+                  privateKey: |
+                    {{ "\n" + (jenkins_slave_ssh_key | default("DEFAULT_SSH_KEY", true) | indent(20, true)) }}
+

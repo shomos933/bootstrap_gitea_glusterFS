@@ -36,7 +36,7 @@ install_packages() {
         sudo apt update
         sudo apt install -y genisoimage qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils terraform ansible cloud-utils jq git openssh-server
         # Дополнительно: установка необходимых коллекций Ansible
-        ansible-galaxy collection install ansible.posix
+        ansible-galaxy collection install community.crypto ansible.posix
     elif [ -f /etc/redhat-release ]; then
         log "RHEL/CentOS обнаружены. Устанавливаю пакеты..."
         sudo dnf install -y qemu-kvm libvirt libvirt-client virt-install jq git openssh-server
@@ -45,7 +45,7 @@ install_packages() {
             sudo dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
         fi
         sudo dnf install -y ansible-core cloud-utils-growpart genisoimage cloud-init
-        ansible-galaxy collection install ansible.posix
+        ansible-galaxy collection install ansible.posix community.crypto
         if [ ! -f /usr/bin/mkisofs ]; then
             sudo ln -s /usr/bin/genisoimage /usr/bin/mkisofs
         fi

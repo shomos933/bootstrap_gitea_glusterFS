@@ -1,14 +1,14 @@
 ---
-- name: Установить Java 17
+- name: Установить Java 21
   apt:
-    name: openjdk-17-jdk
+    name: openjdk-21-jdk
     state: present
   become: yes
   when: ansible_os_family == "Debian"
 
-- name: Установить Java 17 (RedHat)
+- name: Установить Java 21 (RedHat)
   yum:
-    name: java-17-openjdk
+    name: java-21-openjdk
     state: present
   become: yes
   when: ansible_os_family == "RedHat"
@@ -17,16 +17,24 @@
   lineinfile:
     path: /etc/default/jenkins
     regexp: '^JAVA_HOME='
-    line: 'JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64'
+    line: 'JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64'
     create: yes
   become: yes
   when: ansible_os_family == "Debian"
+
+- name: Настроить переменную JENKINS_HOME для Jenkins
+  lineinfile:
+    path: /etc/default/jenkins
+    regexp: '^JENKINS_HOME='
+    line: 'JENKINS_HOME=/var/jenkins_home'
+    create: yes
+  become: yes
 
 - name: Настроить переменную JAVA_HOME для Jenkins (RedHat)
   lineinfile:
     path: /etc/default/jenkins
     regexp: '^JAVA_HOME='
-    line: 'JAVA_HOME=/usr/lib/jvm/java-17-openjdk'
+    line: 'JAVA_HOME=/usr/lib/jvm/java-21-openjdk'
     create: yes
   become: yes
   when: ansible_os_family == "RedHat"
@@ -96,15 +104,82 @@
     state: mounted
   become: yes
 
-- name: Скопировать JCasC конфигурацию на NFS-сервер
-  copy:
-    src: files/casc.yml
+    #- name: Ensure key directory exists on Control Node
+    # file:
+    # path: "{{ playbook_dir }}/files" # Создаем директорию files внутри директории плейбука
+    # state: directory
+    #mode: '0700' # Права только для пользователя
+    #connection: local # Выполнить локально на управляющей машине
+    # run_once: true # Достаточно выполнить один раз для всего плейбука
+
+- name: Сгенерировать SSH ключевую пару для Jenkins slave (если не существует)
+  community.crypto.openssh_keypair:
+    # Используем playbook_dir для надежности пути
+    path: "{{ playbook_dir }}/roles/jenkins-master/files/jenkins-slave-id_rsa"
+    type: rsa
+    size: 4096
+    mode: '0600' # Устанавливаем права на приватный ключ
+  register: jenkins_keypair
+  connection: local # Генерация ключа тоже локально
+  run_once: true # Генерируем один раз
+
+- name: Прочитать приватный SSH ключ Jenkins slave
+  slurp:
+    src: "{{ playbook_dir }}/roles/jenkins-master/files/jenkins-slave-id_rsa"
+  register: jenkins_slave_key_raw
+  connection: local # Чтение ключа тоже локально
+  run_once: true # Читаем один раз
+
+- name: Декодировать содержимое приватного ключа
+  set_fact:
+    jenkins_slave_ssh_key: "{{ jenkins_slave_key_raw.content | b64decode }}"
+
+- name: Распаковать архив с Jenkins Home на целевом узле
+  unarchive:
+    src: "files/jenkins_home_backup.tar.gz"
+    dest: /var/
+    remote_src: no
+  become: yes
+
+- name: Сгенерировать JCasC конфигурацию для Jenkins
+  template:
+    src: jenkins.yaml.j2
     dest: /var/jenkins_home/jenkins.yaml
     owner: jenkins
     group: jenkins
     mode: '0644'
   become: yes
-  delegate_to: 192.168.122.103  # Выполнить на NFS-сервере
+  delegate_to: 192.168.122.103
+
+- name: Установить владельца файлов для Jenkins Home
+  file:
+    path: /var/jenkins_home
+    owner: jenkins
+    group: jenkins
+    recurse: yes
+  become: yes
+
+- name: Создать директорию для override-файлов Jenkins в systemd
+  file:
+    path: /etc/systemd/system/jenkins.service.d
+    state: directory
+    mode: '0755'
+  become: yes
+
+- name: Создать override-файл для Jenkins с переменной JENKINS_HOME
+  copy:
+    dest: /etc/systemd/system/jenkins.service.d/override.conf
+    content: |
+      [Service]
+      Environment="JENKINS_HOME=/var/jenkins_home"
+    owner: root
+    group: root
+    mode: '0644'
+  become: yes
+
+- name: Перезагрузить systemd для применения изменений
+  command: systemctl daemon-reload
+  become: yes
 
 - name: Запустить Jenkins
   systemd:
@@ -112,4 +187,3 @@
     state: restarted
     enabled: yes
   become: yes
-

@@ -18,7 +18,7 @@ resource "libvirt_volume" "nfs_vm_disk" {
 # Изменение размера диска до 30 ГБ
 resource "null_resource" "resize_nfs_volume" {
   provisioner "local-exec" {
-    command = "qemu-img resize /var/lib/libvirt/nfs_pool/nfs_node_disk.qcow2 30G"
+    command = "qemu-img resize /var/lib/libvirt/nfs_pool/nfs_node_disk.qcow2 35G"
   }
   depends_on = [libvirt_volume.nfs_vm_disk]
 }

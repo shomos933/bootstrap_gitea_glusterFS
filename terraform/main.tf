@@ -29,7 +29,7 @@ resource "null_resource" "resize_volume" {
   count = var.vm_count
 
   provisioner "local-exec" {
-    command = "qemu-img resize /home/shom/virsh_HDD/gitea_pool/gitea_node_disk_${count.index + 1}.qcow2 7G"
+    command = "qemu-img resize /home/shom/virsh_HDD/gitea_pool/gitea_node_disk_${count.index + 1}.qcow2 9G"
   }
 
   depends_on = [libvirt_volume.vm_volume]

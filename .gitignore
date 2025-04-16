@@ -7,3 +7,6 @@ terraform/.terraform.tfstate.lock.info
 terraform/terraform.tfstate  
 terraform/.main.tf.swo
 .master.sh.swp
+jenkins-slave-id_rsa.pub
+jenkins-slave-id_rsa
+

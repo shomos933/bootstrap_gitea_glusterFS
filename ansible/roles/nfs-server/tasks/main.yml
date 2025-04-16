@@ -52,7 +52,7 @@
 - name: Настроить экспорт NFS для Jenkins Home
   copy:
     dest: /etc/exports.d/jenkins_home.exports
-    content: "/var/jenkins_home *(rw,sync,no_subtree_check,no_root_squash,all_squash,anonuid=1001,anongid=1001)"
+    content: "/var/jenkins_home *(rw,sync,no_subtree_check,no_root_squash)"
     owner: root
     group: root
     mode: '0644'
