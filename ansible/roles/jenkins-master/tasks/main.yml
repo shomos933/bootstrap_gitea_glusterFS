@@ -134,12 +134,32 @@
   set_fact:
     jenkins_slave_ssh_key: "{{ jenkins_slave_key_raw.content | b64decode }}"
 
-- name: Распаковать архив с Jenkins Home на целевом узле
+# Объединение частей архива на управляющем узле
+- name: Объединить части архива в один файл
+  shell: |
+    cat {{ playbook_dir }}/roles/jenkins-master/files/jenkins_home_backup.tar.gz.part-* > /tmp/jenkins_home_backup.tar.gz
+  args:
+    executable: /bin/bash
+  delegate_to: localhost
+  run_once: true
+
+# Распаковка архива на удалённом узле (на целевом Jenkins Master)
+- name: Распаковать объединённый архив с Jenkins Home на целевом узле
   unarchive:
-    src: "files/jenkins_home_backup.tar.gz"
+    src: "/tmp/jenkins_home_backup.tar.gz"
     dest: /var/
-    remote_src: no
+    remote_src: false
   become: yes
+
+# (Далее ваши оставшиеся задачи, например, генерация конфигурации, установка владельца и т.д.)
+
+# Очистка временного файла на управляющем узле
+- name: Удалить временный объединённый файл на управляющем узле
+  file:
+    path: "/tmp/jenkins_home_backup.tar.gz"
+    state: absent
+  delegate_to: localhost
+  run_once: true
 
 - name: Сгенерировать JCasC конфигурацию для Jenkins
   template:

@@ -1,139 +1,149 @@
 #!/bin/bash
-# cleaner.sh
+# cleaner.sh — менюный скрипт для удаления VM, пулов и сетей libvirt
 #
-# Этот скрипт удаляет все созданные ресурсы:
-# 1. Удаляет домены (виртуальные машины) libvirt.
-# 2. Удаляет виртуальные диски и cloud-init ISO, созданные через Terraform.
-# 3. Удаляет пул libvirt "gitea_pool".
-# 4. Очищает DHCP-лизы для сети по умолчанию.
-# 5. Удаляет старые записи в файле known_hosts для виртуальных машин.
-# 6. (Опционально) Удаляет файлы состояния Terraform.
+# Пункты меню:
+#   1) Удалить Kubernetes-кластер
+#      • ВМ: k8s-master, k8s-worker-1, k8s-worker-2
+#      • Пул: k8s_pool
+#      • Сеть: k8s-net
+#   2) Удалить Gitea+NFS
+#      • ВМ: gitea-node-1, gitea-node-2, nfs-node
+#      • Пулы: gitea_pool, nfs_pool
+#      • Сеть: default
+#   3) Удалить ВСЕ ресурсы (оба набора и обе сети)
 #
-# Рекомендуется запускать этот скрипт от root (или через sudo).
-#
-# Логирование ведется в файле cleaner.log.
+# После выбора нужно ввести 'Yes' для подтверждения.
+# Рекомендуется запускать от root или через sudo.
 
 LOGFILE="cleaner.log"
 
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOGFILE"
 }
-# ==============================================================
-# ЗАПРОС ПОДТВЕРЖДЕНИЯ ПЕРЕД ЗАПУСКОМ
-# ==============================================================
-echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-echo "ВНИМАНИЕ! Этот скрипт УДАЛИТ следующие ресурсы:"
-echo " - Виртуальные машины: gitea-node-1, gitea-node-2, nfs-node"
-echo " - Пулы libvirt: gitea_pool, nfs_pool"
-echo " - Содержимое директорий пулов (ПРОВЕРЬТЕ ПУТИ!):"
-echo "   - /home/shom/virsh_HDD/gitea_pool"
-echo "   - /var/lib/libvirt/nfs_pool"
-echo " - DHCP аренды для IP: 192.168.122.101, 192.168.122.102, 192.168.122.103"
-echo " - Записи SSH known_hosts для этих IP"
-echo " - Опционально: файлы состояния Terraform (terraform.tfstate*)"
-echo ""
-echo "Это действие НЕОБРАТИМО."
-echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-read -p "Для подтверждения удаления введите 'Yes': " CONFIRMATION
 
-if [[ "$CONFIRMATION" != "Yes" ]]; then
-    echo "Отмена операции. Ресурсы не будут удалены."
+# Очистим старый лог
+> "$LOGFILE"
+
+# Меню выбора
+cat <<EOF
+=============================
+       CLEANER MENU
+=============================
+1) Удалить Kubernetes-кластер
+2) Удалить Gitea+NFS
+3) Удалить ВСЕ ресурсы
+=============================
+EOF
+
+read -rp "Выберите пункт (1/2/3): " choice
+
+# Подготовка списков по выбору
+case "$choice" in
+  1)
+    DESC="Kubernetes-кластер"
+    DOMAINS=(k8s-master k8s-worker-1 k8s-worker-2)
+    POOLS=(k8s_pool)
+    NETWORKS=(k8s-net)
+    STATE_DIRS=("terraform-k8s-cluster")
+    ;;
+  2)
+    DESC="Gitea+NFS"
+    DOMAINS=(gitea-node-1 gitea-node-2 nfs-node)
+    POOLS=(gitea_pool nfs_pool)
+    NETWORKS=(default)
+    STATE_DIRS=("terraform")
+    ;;
+  3)
+    DESC="Все ресурсы"
+    DOMAINS=(k8s-master k8s-worker-1 k8s-worker-2 \
+             gitea-node-1 gitea-node-2 nfs-node)
+    POOLS=(k8s_pool gitea_pool nfs_pool)
+    NETWORKS=(k8s-net default)
+    STATE_DIRS=("terraform-k8s-cluster" "terraform")
+    ;;
+  *)
+    echo "Неверный выбор, выходим."
+    exit 1
+    ;;
+esac
+
+# Подтверждение
+echo
+echo "Выбран пункт: $choice — удаляем: $DESC"
+echo " ВМ:       ${DOMAINS[*]}"
+echo " Пулы:     ${POOLS[*]}"
+echo " Сети:     ${NETWORKS[*]}"
+echo " TF-state: ${STATE_DIRS[*]}"
+read -rp "Для продолжения введите 'Yes' или 'No' чтобы прервать: " CONFIRM
+if [[ "$CONFIRM" != "Yes" ]]; then
+    echo "Операция отменена."
     exit 1
 fi
+echo
 
-echo "Подтверждение получено. Начинаю очистку..."
-# ==============================================================
-
-# Очистка лог-файла перед новым запуском (опционально)
-echo > "$LOGFILE"
-
+log "=== Начинаем очистку: $DESC ==="
 if [ "$EUID" -ne 0 ]; then
-    log "WARNING: Рекомендуется запускать этот скрипт от root или через sudo."
+    log "WARNING: рекомендуется запускать от root или через sudo."
 fi
 
-log "=== Начало очистки через cleaner.sh ==="
-
-# 1. Удаление виртуальных машин
-log "Удаляю домены (виртуальные машины): gitea-node-1, gitea-node-2 и ноду nfs-node (если существует)..."
-for domain in gitea-node-1 gitea-node-2 nfs-node; do
-    if virsh dominfo "$domain" &>/dev/null; then
-        sudo virsh destroy "$domain" 2>/dev/null
-        sudo virsh undefine "$domain" --remove-all-storage 2>/dev/null
-        log "Домен $domain удалён."
+# 1) Удаляем ВМ
+for dom in "${DOMAINS[@]}"; do
+    if virsh dominfo "$dom" &>/dev/null; then
+        log "Убиваю и undefine VM: $dom"
+        virsh destroy "$dom"       &>/dev/null || true
+        virsh undefine "$dom" --remove-all-storage &>/dev/null || true
+        log "  → $dom удалён"
     else
-        log "Домен $domain не найден."
+        log "  → $dom не найден"
     fi
 done
 
-# 2. Удаление виртуальных дисков и cloud-init ISO из пула
-log "Удаляю виртуальные диски и cloud-init ISO из пула gitea_pool..."
-if virsh pool-info gitea_pool &>/dev/null; then
-    sudo virsh pool-destroy gitea_pool 2>/dev/null
-    sudo virsh pool-undefine gitea_pool 2>/dev/null
-    log "Пул gitea_pool удалён."
-else
-    log "Пул gitea_pool не найден."
-fi
-rm -rf /home/shom/virsh_HDD/gitea_pool
-
-# 2b. Если создан отдельный пул для NFS, удаляем его также
-if virsh pool-info nfs_pool &>/dev/null; then
-    sudo virsh pool-destroy nfs_pool 2>/dev/null
-    sudo virsh pool-undefine nfs_pool 2>/dev/null
-    log "Пул nfs_pool удалён."
-else
-    log "Пул nfs_pool не найден."
-fi
-rm -rf /var/lib/libvirt/nfs_pool
-
-# 3. Очистка DHCP-лизов для сети по умолчанию
-#if [ -f /var/lib/libvirt/dnsmasq/default.leases ]; then
-#   log "Удаляю старые DHCP-лизы из /var/lib/libvirt/dnsmasq/default.leases"
-#    sudo rm -f /var/lib/libvirt/dnsmasq/default.leases
-#    sudo virsh net-destroy default && sudo virsh net-start default
-#else
-#    log "Файл DHCP-лизов не найден."
-#fi
-
-# 3. Очистка DHCP-лизов для сети по умолчанию
-log "Очищаю DHCP-лизы для IP 192.168.122.101 и 192.168.122.102...192.168.122.103..."
-if [ -f /var/lib/libvirt/dnsmasq/virbr0.status ]; then
-    # Создать резервную копию
-    cp /var/lib/libvirt/dnsmasq/virbr0.status /var/lib/libvirt/dnsmasq/virbr0.status.bak
-    
-    # Вариант с jq (если установлен)
-    if command -v jq &> /dev/null; then
-        jq '[.[] | select(.["ip-address"] != "192.168.122.101" and .["ip-address"] != "192.168.122.102" and .["ip-address"] != "192.168.122.103")]' /var/lib/libvirt/dnsmasq/virbr0.status.bak > /var/lib/libvirt/dnsmasq/virbr0.status
+# 2) Удаляем пулы и их каталоги
+for pool in "${POOLS[@]}"; do
+    if virsh pool-info "$pool" &>/dev/null; then
+        log "Останавливаю и undefine пул: $pool"
+        virsh pool-destroy "$pool"  &>/dev/null || true
+        virsh pool-undefine "$pool" &>/dev/null || true
+        log "  → пул $pool удалён"
     else
-        # Простой вариант - просто очистить все
-        echo "[]" > /var/lib/libvirt/dnsmasq/virbr0.status
+        log "  → пул $pool не найден"
     fi
-    
-    # Перезапустить сеть
-    virsh net-destroy default && virsh net-start default
-    log "DHCP-лизы для указанных IP-адресов успешно удалены."
-else
-    log "Файл DHCP-лизов virbr0.status не найден."
-fi
 
-# 4. Удаление старых записей в known_hosts
-log "Удаляю старые записи в known_hosts для IP 192.168.122.101 и 192.168.122.102...192.168.122.103..."
-sudo ssh-keygen -R 192.168.122.101 2>/dev/null
-sudo ssh-keygen -R 192.168.122.102 2>/dev/null
-sudo ssh-keygen -R 192.168.122.103 2>/dev/null
-# Если known_hosts находится в другом месте (например, /root/.ssh/known_hosts), можно также выполнить:
-# sudo ssh-keygen -R 192.168.122.101 -f /root/.ssh/known_hosts
-# sudo ssh-keygen -R 192.168.122.102 -f /root/.ssh/known_hosts
+    # Определяем директорию пула
+    if [ "$pool" = "nfs_pool" ]; then
+        DIR="/var/lib/libvirt/nfs_pool"
+    else
+        DIR=$(virsh pool-dumpxml "$pool" 2>/dev/null \
+              | sed -n 's:.*<target><path>\(.*\)</path>.*:\1:p')
+        [ -z "$DIR" ] && DIR="/home/shom/virsh_HDD/$pool"
+    fi
 
-# 5. (Опционально) Удаление файлов состояния Terraform
-read -p "Удалить файлы состояния Terraform? [y/N]: " answer
-if [[ "$answer" =~ ^[Yy]$ ]]; then
-    log "Удаляю файлы состояния Terraform..."
-    rm -f terraform/terraform.tfstate*
-    log "Файлы состояния Terraform удалены."
-fi
+    if [ -d "$DIR" ]; then
+        rm -rf "$DIR"
+        log "  → удалена папка пула: $DIR"
+    fi
+done
 
-log "=== Очистка завершена успешно ==="
+# 3) Удаляем сети (и все лизы/конфиги dnsmasq)
+for net in "${NETWORKS[@]}"; do
+    if virsh net-info "$net" &>/dev/null; then
+        log "Останавливаю и undefine сеть: $net"
+        virsh net-destroy "$net"  &>/dev/null || true
+        virsh net-undefine "$net" &>/dev/null || true
+        log "  → сеть $net удалена"
+    else
+        log "  → сеть $net не найдена"
+    fi
+done
 
+# 4) Удаляем файлы Terraform state
+for dir in "${STATE_DIRS[@]}"; do
+    if [ -d "$dir" ]; then
+        rm -f "$dir"/terraform.tfstate* 2>/dev/null
+        log "  → state-файлы удалены в $dir"
+    fi
+done
+
+log "=== Очистка завершена ==="
 exit 0
 

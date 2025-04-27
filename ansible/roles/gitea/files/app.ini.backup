@@ -24,3 +24,7 @@ PASSWORD = 556611
 
 [oauth2]
 JWT_SECRET = s64OVfBL66lPyvW09gBHxoNBt_ShMDF5ysEn4eWBLDc
+
+[webhook]
+ALLOWED_HOST_LIST = gitea-node-1,192.168.122.101
+

@@ -164,6 +164,22 @@ EOF
 }
 create_pool
 
+#Добавить правила маршрутизации между сетями 192.168.122.0 default и 192.168.123.0 k8s-net
+# 1) Новые соединения: k8s-net → default
+sudo iptables -I FORWARD -i virbr1 -o virbr0 -j ACCEPT
+
+# 2) Новые соединения: default → k8s-net
+sudo iptables -I FORWARD -i virbr0 -o virbr1 -j ACCEPT
+
+# 3) Ответы: default → k8s-net (RELATED,ESTABLISHED)
+sudo iptables -I FORWARD -i virbr0 -o virbr1 -m state --state RELATED,ESTABLISHED -j ACCEPT
+
+# 4) Маскарадинг: чтобы 192.168.123.0/24 выходили в default под хост-адресом virbr0
+sudo iptables -t nat -A POSTROUTING -s 192.168.123.0/24 -o virbr0 -j MASQUERADE
+
+sudo iptables-save | sudo tee /etc/iptables/rules.v4
+sudo ip6tables-save | sudo tee /etc/iptables/rules.v6
+
 ### 5. Добавление пользователя "shom" в группу libvirt
 #log "Добавляю пользователя shom в группу libvirt..."
 #sudo usermod -aG libvirt shom
