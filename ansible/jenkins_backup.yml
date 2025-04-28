@@ -1,0 +1,44 @@
+---
+- name: Backup and split Jenkins Home into 40 MB parts
+  hosts: jenkins_master
+  gather_facts: false
+
+  vars:
+    jenkins_home_path: /var/jenkins_home
+    backup_dir: /tmp/jenkins_backup
+    part_prefix: jenkins_home.tar.gz.part.
+    part_size: 40m
+    # Локальный каталог для хранения частей
+    local_backup_dir: "{{ playbook_dir }}/roles/jenkins-master/files"
+
+  tasks:
+    - name: Убедиться, что удалённый каталог для бэкапов существует
+      file:
+        path: "{{ backup_dir }}"
+        state: directory
+        mode: '0755'
+      become: yes
+
+    - name: Архивировать Jenkins Home и разбить на куски по 40 МБ
+      shell: |
+        tar cz -C "{{ jenkins_home_path }}" . \
+        | split -b {{ part_size }} - "{{ backup_dir }}/{{ part_prefix }}"
+      args:
+        executable: /bin/bash
+        creates: "{{ backup_dir }}/{{ part_prefix }}aa"
+      become: yes
+
+    - name: Найти все части архива на удалённой ноде
+      find:
+        paths: "{{ backup_dir }}"
+        patterns: "{{ part_prefix }}*"
+      register: backup_parts
+      become: yes
+
+    - name: Скопировать каждую часть архива на управляющую машину
+      fetch:
+        src: "{{ item.path }}"
+        dest: "{{ local_backup_dir }}/"
+        flat: yes
+      loop: "{{ backup_parts.files }}"
+

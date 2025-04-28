@@ -1,0 +1,86 @@
+---
+- name: Backup, split and fetch Gitea repos & database in one play
+  hosts: jenkins_master
+  gather_facts: false
+
+  vars:
+    # remote paths
+    repos_src_dir: /var/lib/gitea/gitea-repositories
+    data_src_file: /var/lib/gitea/data/gitea.db
+
+    backup_base: /tmp/gitea_backup
+    repos_backup_dir: "{{ backup_base }}/repos"
+    data_backup_dir:  "{{ backup_base }}/data"
+
+    # split prefixes
+    repos_prefix: gitea_repos.tar.gz.part.
+    data_prefix:  gitea_data.tar.gz.part.
+    part_size:    40m
+
+    # local fetch destination
+    local_fetch_dir: "{{ playbook_dir }}/roles/gitea/files"
+
+  tasks:
+    - name: Ensure remote backup dirs exist
+      file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0755'
+      loop:
+        - "{{ repos_backup_dir }}"
+        - "{{ data_backup_dir }}"
+      become: yes
+
+    - name: Archive & split Gitea repositories into 40MB parts
+      shell: |
+        tar cz -C "{{ repos_src_dir }}" . \
+        | split -b {{ part_size }} - "{{ repos_backup_dir }}/{{ repos_prefix }}"
+      args:
+        executable: /bin/bash
+        creates: "{{ repos_backup_dir }}/{{ repos_prefix }}aa"
+      become: yes
+
+    - name: Archive & split Gitea database into 40MB parts
+      shell: |
+        tar cz -C "{{ data_src_file | dirname }}" "{{ data_src_file | basename }}" \
+        | split -b {{ part_size }} - "{{ data_backup_dir }}/{{ data_prefix }}"
+      args:
+        executable: /bin/bash
+        creates: "{{ data_backup_dir }}/{{ data_prefix }}aa"
+      become: yes
+
+    - name: Find all repos backup parts on remote
+      find:
+        paths: "{{ repos_backup_dir }}"
+        patterns: "{{ repos_prefix }}*"
+      register: repos_parts
+      become: yes
+
+    - name: Find all data backup parts on remote
+      find:
+        paths: "{{ data_backup_dir }}"
+        patterns: "{{ data_prefix }}*"
+      register: data_parts
+      become: yes
+
+    - name: Ensure local fetch directory exists
+      file:
+        path: "{{ local_fetch_dir }}"
+        state: directory
+        mode: '0755'
+      delegate_to: localhost
+
+    - name: Fetch each repos backup part to controller
+      fetch:
+        src: "{{ item.path }}"
+        dest: "{{ local_fetch_dir }}/"
+        flat: yes
+      loop: "{{ repos_parts.files }}"
+
+    - name: Fetch each data backup part to controller
+      fetch:
+        src: "{{ item.path }}"
+        dest: "{{ local_fetch_dir }}/"
+        flat: yes
+      loop: "{{ data_parts.files }}"
+
