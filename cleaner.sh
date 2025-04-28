@@ -9,7 +9,7 @@
 #   2) Удалить Gitea+NFS
 #      • ВМ: gitea-node-1, gitea-node-2, nfs-node
 #      • Пулы: gitea_pool, nfs_pool
-#      • Сеть: default
+#      • Сеть: gitea-net
 #   3) Удалить ВСЕ ресурсы (оба набора и обе сети)
 #
 # После выбора нужно ввести 'Yes' для подтверждения.
@@ -50,7 +50,7 @@ case "$choice" in
     DESC="Gitea+NFS"
     DOMAINS=(gitea-node-1 gitea-node-2 nfs-node)
     POOLS=(gitea_pool nfs_pool)
-    NETWORKS=(default)
+    NETWORKS=(gitea-net)
     STATE_DIRS=("terraform")
     ;;
   3)
@@ -58,7 +58,7 @@ case "$choice" in
     DOMAINS=(k8s-master k8s-worker-1 k8s-worker-2 \
              gitea-node-1 gitea-node-2 nfs-node)
     POOLS=(k8s_pool gitea_pool nfs_pool)
-    NETWORKS=(k8s-net default)
+    NETWORKS=(k8s-net gitea-net)
     STATE_DIRS=("terraform-k8s-cluster" "terraform")
     ;;
   *)

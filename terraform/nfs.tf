@@ -54,7 +54,7 @@ resource "libvirt_domain" "nfs_node" {
   cloudinit = libvirt_cloudinit_disk.nfs_cloudinit.id
 
   network_interface {
-    network_name = "default"
+    network_name = libvirt_network.gitea_net.name
     addresses    = [ var.nfs_ip ]
   }
 

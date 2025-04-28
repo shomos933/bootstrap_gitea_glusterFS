@@ -98,19 +98,11 @@
 - name: Настроить Jenkins Home на NFS
   mount:
     path: /var/jenkins_home
-    src: "192.168.122.103:/var/jenkins_home"
+    src: "nfs-node:/var/jenkins_home"
     fstype: nfs
     opts: "defaults,_netdev"
     state: mounted
   become: yes
-
-    #- name: Ensure key directory exists on Control Node
-    # file:
-    # path: "{{ playbook_dir }}/files" # Создаем директорию files внутри директории плейбука
-    # state: directory
-    #mode: '0700' # Права только для пользователя
-    #connection: local # Выполнить локально на управляющей машине
-    # run_once: true # Достаточно выполнить один раз для всего плейбука
 
 - name: Сгенерировать SSH ключевую пару для Jenkins slave (если не существует)
   community.crypto.openssh_keypair:

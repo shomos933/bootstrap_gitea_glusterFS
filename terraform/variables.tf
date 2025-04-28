@@ -33,7 +33,7 @@ variable "vm_image_path" {
 variable "static_ips" {
   description = "Список статических IP для виртуальных машин"
   type        = list(string)
-  default     = ["192.168.122.101", "192.168.122.102"]
+  default     = ["192.168.124.101", "192.168.124.102"]
 }
 
 variable "default_user" {
@@ -46,7 +46,7 @@ variable "default_user" {
 variable "nfs_ip" {
   description = "Статический IP для NFS узла"
   type        = string
-  default     = "192.168.122.103"
+  default     = "192.168.124.103"
 }
 variable "nfs_memory" {
   description = "Оперативная память для NFS-ВМ (в МБ)"

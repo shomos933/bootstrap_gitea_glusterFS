@@ -69,6 +69,13 @@ resource "libvirt_cloudinit_disk" "commoninit" {
 # Создание виртуальных машин
 resource "libvirt_domain" "gitea_nodes" {
   count  = var.vm_count
+  
+
+  # гарантируем, что сеть будет создана раньше ВМ
+  depends_on = [
+    libvirt_network.gitea_net
+  ]
+
   name   = "gitea-node-${count.index + 1}"
   memory = var.vm_memory
   vcpu   = var.vm_vcpu
@@ -83,7 +90,7 @@ resource "libvirt_domain" "gitea_nodes" {
 
   # Сетевой интерфейс с назначением статического IP
   network_interface {
-    network_name = "default"
+    network_name = libvirt_network.gitea_net.name
     addresses    = [ var.static_ips[count.index] ]
   }
 
