@@ -112,7 +112,7 @@
 - name: Разархивировать базу данных
   unarchive:
     src: /tmp/gitea_data_backup.tar.gz
-    dest: "/"
+    dest: "/var/lib/gitea/data"
   become: yes
 
 - name: Cleanup remote temporary backup files

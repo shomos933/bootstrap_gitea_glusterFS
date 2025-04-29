@@ -105,3 +105,45 @@ resource "libvirt_domain" "gitea_nodes" {
   }
 }
 
+resource "time_sleep" "wait_after_create_domains" {
+ # Увеличиваем время ожидания!
+ create_duration = "4s"
+ depends_on = [libvirt_domain.gitea_nodes]
+}
+
+resource "null_resource" "known_hosts_update" {
+   provisioner "local-exec" {
+    command = <<-EOT
+       # Используем ips из переменной Terraform, если она есть, иначе жестко прописываем
+       for ip in ${join(" ", concat(var.static_ips, [var.nfs_ip]))}; do
+         echo "Waiting for SSH on $ip..."
+         local obtained_key=false # Флаг успеха для текущего IP
+
+         # Внутренний цикл попыток
+         for i in {1..15}; do
+           # Пытаемся добавить ключ. Перенаправляем stderr в /dev/null, чтобы не видеть ошибок 'Connection refused' в выводе Terraform
+           if ssh-keyscan -H "$ip" >> ~/.ssh/known_hosts 2>/dev/null; then
+             echo "SSH key obtained for $ip."
+             obtained_key=true # Ставим флаг в true
+             break # Выходим из цикла попыток
+           else
+             echo "SSH not ready on $ip, retrying ($i/15)..."
+             sleep 3 # Ждем перед следующей попыткой
+           fi
+         done # Конец внутреннего цикла
+
+         # Проверяем флаг ПОСЛЕ завершения всех попыток
+         if [ "$obtained_key" = false ]; then
+           echo "ERROR: Failed to obtain SSH key for $ip after multiple attempts."
+            exit 1 # Раскомментируй, если хочешь прервать Terraform при ошибке
+         fi
+       done # Конец внешнего цикла по IP
+     EOT
+   }
+   depends_on = [
+     libvirt_domain.gitea_nodes,
+     libvirt_domain.nfs_node,
+     # Зависимость от time_sleep все еще полезна, чтобы не начинать сканирование слишком рано
+     time_sleep.wait_after_create_domains
+   ]
+}

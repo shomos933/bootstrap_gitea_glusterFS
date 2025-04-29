@@ -129,7 +129,7 @@
 # Объединение частей архива на управляющем узле
 - name: Объединить части архива в один файл
   shell: |
-    cat {{ playbook_dir }}/roles/jenkins-master/files/jenkins_home_backup.tar.gz.part-* > /tmp/jenkins_home_backup.tar.gz
+    cat {{ playbook_dir }}/roles/jenkins-master/files/jenkins_home.tar.gz.part.* > /tmp/jenkins_home_backup.tar.gz
   args:
     executable: /bin/bash
   delegate_to: localhost
@@ -139,7 +139,7 @@
 - name: Распаковать объединённый архив с Jenkins Home на целевом узле
   unarchive:
     src: "/tmp/jenkins_home_backup.tar.gz"
-    dest: /var/
+    dest: /var/jenkins_home
     remote_src: false
   become: yes
 
@@ -161,7 +161,7 @@
     group: jenkins
     mode: '0644'
   become: yes
-  delegate_to: 192.168.122.103
+  delegate_to: 192.168.124.103
 
 - name: Установить владельца файлов для Jenkins Home
   file:

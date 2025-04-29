@@ -86,6 +86,18 @@ if [ "$EUID" -ne 0 ]; then
     log "WARNING: рекомендуется запускать от root или через sudo."
 fi
 
+# 5) Удаляем отпечатки SSH из known_hosts
+KNOWN_HOSTS="$HOME/.ssh/known_hosts"
+for dom in "${DOMAINS[@]}"; do
+    # Попробуем узнать IP-адрес через virsh
+    IP=$(virsh domifaddr "$dom" 2>/dev/null | awk '/ipv4/ {print $4}' | cut -d'/' -f1)
+    if [ -n "$IP" ]; then
+        ssh-keygen -R "$IP" &>/dev/null && log "  → удалён SSH ключ: $IP"
+    fi
+    # Также удалим по имени ВМ на всякий случай
+    ssh-keygen -R "$dom" &>/dev/null && log "  → удалён SSH ключ: $dom"
+done
+
 # 1) Удаляем ВМ
 for dom in "${DOMAINS[@]}"; do
     if virsh dominfo "$dom" &>/dev/null; then

@@ -2,7 +2,7 @@ WORK_PATH = /var/lib/gitea
 
 [server]
 HTTP_PORT = 3000
-ROOT_URL = http://192.168.122.101:3000/
+ROOT_URL = http://gitea-node-1:3000/
 RUN_MODE = prod
 
 [database]

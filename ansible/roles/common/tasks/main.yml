@@ -1,4 +1,15 @@
 ---
+
+### Обновление known_hosts для всех узлов с использованием ssh-keyscan
+#- name: Обновить known_hosts для узлов
+#  known_hosts:
+#    path: ~/.ssh/known_hosts
+#    name: "{{ item }}"
+#    key: "{{ lookup('pipe', 'ssh-keyscan -H ' ~ item) }}"
+#  loop: "{{ groups['gitea_nodes'] }}"
+#  delegate_to: localhost
+
+
 # Обновление системы и установка базовых утилит
 - name: Создать swap-файл размером 1GB
   become: yes
@@ -104,13 +115,4 @@
 - name: Вывести результат работы скрипта настройки логов
   debug:
     msg: "{{ log_script_result.stdout_lines }}"
-
-# Обновление known_hosts для всех узлов с использованием ssh-keyscan
-- name: Обновить known_hosts для узлов
-  known_hosts:
-    path: /home/shom/.ssh/known_hosts
-    name: "{{ item }}"
-    key: "{{ lookup('pipe', 'ssh-keyscan -H ' ~ item) }}"
-  loop: "{{ groups['gitea_nodes'] }}"
-  delegate_to: localhost
 
