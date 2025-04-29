@@ -116,3 +116,82 @@
   debug:
     msg: "{{ log_script_result.stdout_lines }}"
 
+- name: Убедиться, что у юзера {{ mesh_user }} есть .ssh на каждой ноде
+  file:
+    path: "/home/{{ mesh_user }}/.ssh"
+    state: directory
+    owner: "{{ mesh_user }}"
+    group: "{{ mesh_user }}"
+    mode: '0700'
+  become: yes
+  vars:
+    mesh_user: ubuntu     # или jenkins, в зависимости от того, кем будет подключаться Jenkins
+
+- name: Сгенерировать SSH-ключ, если ещё нет
+  openssh_keypair:
+    path: "/home/{{ mesh_user }}/.ssh/id_rsa"
+    type: rsa
+    size: 4096
+    owner: "{{ mesh_user }}"
+    group: "{{ mesh_user }}"
+    mode: '0600'
+  become: yes
+  vars:
+    mesh_user: ubuntu
+
+- name: Собрать публичные ключи всех нод на контроллере
+  delegate_to: localhost
+  run_once: true
+  file:
+    path: "{{ playbook_dir }}/.tmp/mesh_keys"
+    state: directory
+    mode: '0700'
+
+- name: Скопировать публичный ключ с каждой ноды
+  delegate_to: "{{ item }}"
+  fetch:
+    src: "/home/{{ mesh_user }}/.ssh/id_rsa.pub"
+    dest: "{{ playbook_dir }}/.tmp/mesh_keys/{{ item }}.pub"
+    flat: yes
+  loop: "{{ groups['gitea_nodes'] + groups['nfs_server'] }}"  
+  vars:
+    mesh_user: ubuntu
+
+- name: Подготовить директорию .ssh на гипервизоре
+  delegate_to: localhost
+  become: yes
+  file:
+    path: "/root/.ssh"
+    state: directory
+    mode: '0700'
+
+- name: Добавить все публичные ключи в authorized_keys гипервизора
+  delegate_to: localhost
+  become: yes
+  authorized_key:
+    user: root
+    state: present
+    key: "{{ lookup('file', playbook_dir + '/.tmp/mesh_keys/' + item + '.pub') }}"
+  loop: "{{ groups['gitea_nodes'] + groups['nfs_server'] }}"
+
+# 1) Сканируем SSH-ключ гипервизора и сохраняем его в локальный файл
+- name: ssh-keyscan hypervisor to local file
+  delegate_to: localhost
+  run_once: true
+  shell: |
+    ssh-keyscan -H 192.168.0.137 > /tmp/hypervisor_known_hosts
+  args:
+    creates: /tmp/hypervisor_known_hosts
+
+# 2) Копируем этот файл в /root/.ssh/known_hosts на всех нодах
+- name: Distribute hypervisor known_hosts to /root/.ssh/known_hosts
+  copy:
+    src: /tmp/hypervisor_known_hosts
+    dest: "/home/{{ mesh_user }}/.ssh/known_hosts"
+    owner: "{{ mesh_user }}"
+    group: "{{ mesh_user }}"
+    mode: '0644'
+  become: yes
+  vars:
+    mesh_user: ubuntu
+
