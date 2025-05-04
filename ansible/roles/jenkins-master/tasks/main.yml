@@ -115,6 +115,27 @@
   connection: local # Генерация ключа тоже локально
   run_once: true # Генерируем один раз
 
+    # ─────────── НОВОЕ ───────────
+
+- name: Переконвертировать приватный ключ в классический PEM (PKCS#1)
+  delegate_to: localhost
+  command: >
+    ssh-keygen -p
+      -P ''
+      -N ''
+      -m PEM
+      -f "{{ playbook_dir }}/roles/jenkins-master/files/jenkins-slave-id_rsa"
+
+
+- name: Установить публичный ключ Jenkins slave на целевую ноду
+  authorized_key:
+    user: root             # или root, если подключение идёт под root
+    state: present
+    key: "{{ lookup('file', playbook_dir + '/roles/jenkins-master/files/jenkins-slave-id_rsa.pub') }}"
+  delegate_to: localhost  # хост, где должен появиться ключ
+  become: yes
+# ─────────────────────────────
+
 - name: Прочитать приватный SSH ключ Jenkins slave
   slurp:
     src: "{{ playbook_dir }}/roles/jenkins-master/files/jenkins-slave-id_rsa"
@@ -161,7 +182,7 @@
     group: jenkins
     mode: '0644'
   become: yes
-  delegate_to: 192.168.124.103
+  delegate_to: nfs_server
 
 - name: Установить владельца файлов для Jenkins Home
   file:

@@ -1,4 +1,24 @@
 ---
+- name: "1. Установить Terraform"
+  become: yes
+  block:
+    - name: "Скачать архив Terraform {{ terraform_version }}"
+      get_url:
+        url: "https://releases.hashicorp.com/terraform/{{ terraform_version }}/terraform_{{ terraform_version }}_linux_amd64.zip"
+        dest: "/tmp/terraform.zip"
+        mode: "0644"
+    - name: "Распаковать Terraform в /usr/local/bin"
+      unarchive:
+        src: "/tmp/terraform.zip"
+        dest: "/usr/local/bin/"
+        remote_src: true
+    - name: "Удалить временный архив Terraform"
+      file:
+        path: "/tmp/terraform.zip"
+        state: absent
+  vars:
+    terraform_version: "1.11.0"  
+
 - name: Установить Java 21
   apt:
     name: openjdk-21-jdk
@@ -78,4 +98,43 @@
     user: jenkins
     key: "{{ lookup('file', 'roles/jenkins-master/files/jenkins-slave-id_rsa.pub') }}"
   become: yes
+
+- name: "Скопировать приватный ключ root@хоста"
+  copy:
+    src: /root/.ssh/id_rsa
+    dest: /var/lib/jenkins/.ssh/id_rsa
+    owner: jenkins
+    group: jenkins
+    mode: '0600'
+
+- name: "Скопировать публичный ключ root@хоста"
+  copy:
+    src: /root/.ssh/id_rsa.pub
+    dest: /var/lib/jenkins/.ssh/id_rsa.pub
+    owner: jenkins
+    group: jenkins
+    mode: '0644'
+
+
+- name: Убедиться, что файл known_hosts существует
+  file:
+    path: /var/lib/jenkins/.ssh/known_hosts
+    state: touch
+    owner: jenkins
+    group: jenkins
+    mode: '0644'
+
+
+- name: Добавить SSH-ключ libvirt-хоста в known_hosts
+  shell: |
+    ssh-keyscan -H hypervisor >> /var/lib/jenkins/.ssh/known_hosts
+  become: true
+
+- name: Поменять владельца и права known_hosts
+  file:
+    path: /var/lib/jenkins/.ssh/known_hosts
+    owner: jenkins
+    group: jenkins
+    mode: '0644'
+  become: true
 

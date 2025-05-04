@@ -1,15 +1,4 @@
 ---
-
-### Обновление known_hosts для всех узлов с использованием ssh-keyscan
-#- name: Обновить known_hosts для узлов
-#  known_hosts:
-#    path: ~/.ssh/known_hosts
-#    name: "{{ item }}"
-#    key: "{{ lookup('pipe', 'ssh-keyscan -H ' ~ item) }}"
-#  loop: "{{ groups['gitea_nodes'] }}"
-#  delegate_to: localhost
-
-
 # Обновление системы и установка базовых утилит
 - name: Создать swap-файл размером 1GB
   become: yes
@@ -179,7 +168,7 @@
   delegate_to: localhost
   run_once: true
   shell: |
-    ssh-keyscan -H 192.168.0.137 > /tmp/hypervisor_known_hosts
+    ssh-keyscan -H `hostname -I | awk '{print $2}'` > /tmp/hypervisor_known_hosts
   args:
     creates: /tmp/hypervisor_known_hosts
 
@@ -194,4 +183,46 @@
   become: yes
   vars:
     mesh_user: ubuntu
+
+- name: Получить stdout `hostname -I`
+  command: hostname -I
+  register: hv_ip_raw
+  changed_when: false
+  delegate_to: localhost
+      
+- name: Add hypervisor entry to /etc/hosts on all nodes
+  vars:
+    hypervisor_ip: "{{ hv_ip_raw.stdout.split()[1] }}"
+  lineinfile:
+    path: /etc/hosts
+    create: yes
+    state: present
+    line: "{{ hypervisor_ip }} hypervisor"
+  become: yes
+
+- name: Add Gitea and NFS nodes entries to hypervisor /etc/hosts
+  delegate_to: localhost
+  run_once: true
+  vars:
+    hosts_list:
+      - { name: "gitea-node-1", ip: "{{ groups['jenkins_master'][0] }}" }
+      - { name: "gitea-node-2", ip: "{{ groups['jenkins_slave'][0] }}" }
+      - { name: "nfs-node",       ip: "{{ groups['nfs_server'][0] }}" }
+  block:
+    - name: Ensure /etc/hosts exists on hypervisor
+      file:
+        path: /etc/hosts
+        state: touch
+      delegate_to: localhost
+      become: yes
+
+    - name: Populate hypervisor /etc/hosts with node entries
+      lineinfile:
+        path: /etc/hosts
+        create: yes
+        state: present
+        line: "{{ item.ip }} {{ item.name }}"
+      loop: "{{ hosts_list }}"
+      delegate_to: localhost
+      become: yes
 

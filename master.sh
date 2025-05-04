@@ -170,6 +170,10 @@ sudo iptables -I FORWARD -i virbr1 -o virbr2 -j ACCEPT
 
 # 2) Новые соединения: default → k8s-net
 sudo iptables -I FORWARD -i virbr2 -o virbr1 -j ACCEPT
+sudo iptables -I FORWARD -i virbr0 -o virbr1 -j ACCEPT
+sudo iptables -I FORWARD -i virbr1 -o virbr0 -j ACCEPT
+sudo iptables -I FORWARD -i virbr2 -o virbr0 -j ACCEPT
+sudo iptables -I FORWARD -i virbr0 -o virbr2 -j ACCEPT
 
 sudo iptables-save | sudo tee /etc/iptables/rules.v4
 sudo ip6tables-save | sudo tee /etc/iptables/rules.v6

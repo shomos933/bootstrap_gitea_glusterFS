@@ -1,13 +1,13 @@
 jenkins:
   systemMessage: "Jenkins configured via JCasC with SSH Launcher"
-  numExecutors: 2
+  numExecutors: 0
 
   nodes:
     - permanent:
         name: "jenkins-slave-node"
         remoteFS: "/var/lib/jenkins" 
         numExecutors: 1 
-        mode: EXCLUSIVE 
+        mode: NORMAL
         launcher:
           ssh:
             host: "gitea-node-2" 

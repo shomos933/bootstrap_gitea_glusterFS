@@ -30,14 +30,14 @@ cat <<EOF
        CLEANER MENU
 =============================
 1) Удалить Kubernetes-кластер
-2) Удалить Gitea+NFS
-3) Удалить ВСЕ ресурсы
+2) Удалить только Gitea-ноды
+3) Удалить только NFS-ноду
+4) Удалить ВСЕ ресурсы
 =============================
 EOF
 
-read -rp "Выберите пункт (1/2/3): " choice
+read -rp "Выберите пункт (1-4): " choice
 
-# Подготовка списков по выбору
 case "$choice" in
   1)
     DESC="Kubernetes-кластер"
@@ -47,13 +47,20 @@ case "$choice" in
     STATE_DIRS=("terraform-k8s-cluster")
     ;;
   2)
-    DESC="Gitea+NFS"
-    DOMAINS=(gitea-node-1 gitea-node-2 nfs-node)
-    POOLS=(gitea_pool nfs_pool)
+    DESC="Gitea-ноды"
+    DOMAINS=(gitea-node-1 gitea-node-2)
+    POOLS=(gitea_pool)
     NETWORKS=(gitea-net)
     STATE_DIRS=("terraform")
     ;;
   3)
+    DESC="NFS-нода"
+    DOMAINS=(nfs-node)
+    POOLS=(nfs_pool)
+    NETWORKS=(gitea-net)
+    STATE_DIRS=("terraform")
+    ;;
+  4)
     DESC="Все ресурсы"
     DOMAINS=(k8s-master k8s-worker-1 k8s-worker-2 \
              gitea-node-1 gitea-node-2 nfs-node)
