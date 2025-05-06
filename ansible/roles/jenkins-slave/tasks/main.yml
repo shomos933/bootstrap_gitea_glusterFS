@@ -1,24 +1,4 @@
 ---
-- name: "1. Установить Terraform"
-  become: yes
-  block:
-    - name: "Скачать архив Terraform {{ terraform_version }}"
-      get_url:
-        url: "https://releases.hashicorp.com/terraform/{{ terraform_version }}/terraform_{{ terraform_version }}_linux_amd64.zip"
-        dest: "/tmp/terraform.zip"
-        mode: "0644"
-    - name: "Распаковать Terraform в /usr/local/bin"
-      unarchive:
-        src: "/tmp/terraform.zip"
-        dest: "/usr/local/bin/"
-        remote_src: true
-    - name: "Удалить временный архив Terraform"
-      file:
-        path: "/tmp/terraform.zip"
-        state: absent
-  vars:
-    terraform_version: "1.11.0"  
-
 - name: Установить Java 21
   apt:
     name: openjdk-21-jdk

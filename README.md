@@ -49,7 +49,7 @@ project/
 │        │         └── main.yml         # Задачи по установке и настройке NFS
 │        ├── jenkins-master/
 │        │    ├── files/
-│        │    │     └── jenkins_home_backup.tar.gz       # Архив с настройками дженкинса и плагинами с существующей ноды
+│        │    │     └── jenkins_home_backup.tar.gz*       # Архив с настройками дженкинса и плагинами с существующей ноды
 │        │    ├── tasks/
 │        │    │     └── main.yml       			 # Задачи по установке и настройке jenkins мастер узла
 │        │    └── templates/
@@ -57,6 +57,9 @@ project/
 │        ├── jenkins-slave/
 │        │    └── tasks/
 │        │         └── main.yml         # Задачи по установке и настройке jenkins slave узла
+│        ├── hypervisor/
+│        │    └── tasks/
+│        │         └── main.yml         # Задачи по установке и настройке jenkins slave узла на локалхост хозяйн гипервизор
 │        ├── glusterfs/
 │        │    └── tasks/
 │        │         └── main.yml         # Задачи по установке и настройке GlusterFS
@@ -65,8 +68,8 @@ project/
 │             │   └── main.yml         # Задачи по установке и настройке Gitea
 │             ├── files/
 │             │    └── app.ini.backup             # Дефолтный конфиг
-│             │    └── gitea_data_backup.tar.gz   # база данных которая содержит одного готового пользователя shom
-│             │    └── gitea_repos_backup.tar.gz  # Папка с готовым репозиторием kub-cluster
+│             │    └── gitea_data_backup.tar.gz*   # база данных которая содержит одного готового пользователя shom
+│             │    └── gitea_repos_backup.tar.gz*  # Папка с готовым репозиторием kub-cluster
 │             └── handlers/
 │                       └── main.yml     # Хэндлер для перезапуска Gitea
 └── master.sh             # Мастер-скрипт, выполняющий процесс (Terraform → Ansible)

@@ -115,6 +115,14 @@
   connection: local # Генерация ключа тоже локально
   run_once: true # Генерируем один раз
 
+- name: Добавить публичный SSH ключ в authorized_keys на локалхост
+  authorized_key:
+    user: root
+    key: "{{ lookup('file', 'roles/jenkins-master/files/jenkins-slave-id_rsa.pub') }}"
+  delegate_to: localhost
+  become: yes
+
+
     # ─────────── НОВОЕ ───────────
 
 - name: Переконвертировать приватный ключ в классический PEM (PKCS#1)
@@ -182,7 +190,7 @@
     group: jenkins
     mode: '0644'
   become: yes
-  delegate_to: nfs_server
+  delegate_to: "{{ groups['nfs_server'][0] }}"
 
 - name: Установить владельца файлов для Jenkins Home
   file:

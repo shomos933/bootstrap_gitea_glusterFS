@@ -7,7 +7,8 @@ jenkins:
         name: "jenkins-slave-node"
         remoteFS: "/var/lib/jenkins" 
         numExecutors: 1 
-        mode: NORMAL
+        labelString: "jenkins-slave-node"
+        mode: EXCLUSIVE
         launcher:
           ssh:
             host: "gitea-node-2" 
@@ -16,6 +17,20 @@ jenkins:
             launchTimeoutSeconds: 60
         retentionStrategy:
           always: {} # Всегда держать подключенным
+    - permanent:
+        name: "hypervisor-agent"      # ваше новое имя
+        remoteFS: "/var/lib/jenkins"
+        numExecutors: 2
+        labelString: "hypervisor"
+        mode: EXCLUSIVE
+        launcher:
+          ssh:
+            host: "hypervisor"        # DNS или IP 192.168.0.137
+            port: 22
+            credentialsId: "jenkins-slave-ssh"
+            launchTimeoutSeconds: 60
+        retentionStrategy:
+          always: {}
 unclassified:
   location:
     url: "http://{{ jenkins_master_host }}:8080/"

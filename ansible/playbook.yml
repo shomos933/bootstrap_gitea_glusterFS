@@ -28,3 +28,11 @@
   become: yes
   roles:
     - jenkins-slave  
+
+- name: Ставим дженкинс slave locahost
+  hosts: hypervisor
+  become: yes
+  roles:
+    - hypervisor
+
+

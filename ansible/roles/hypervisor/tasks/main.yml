@@ -1,0 +1,192 @@
+---
+- name: Установить Java 21
+  apt:
+    name: openjdk-21-jdk
+    state: present
+  become: yes
+  when: ansible_os_family == "Debian"
+
+- name: Установить Java 21 (RedHat)
+  yum:
+    name: java-21-openjdk
+    state: present
+  become: yes
+  when: ansible_os_family == "RedHat"
+
+- name: Переключить системную Java на Java 21 (RedHat)
+  community.general.alternatives:
+    name: java
+    link: /usr/bin/java
+    path: /usr/lib/jvm/java-21-openjdk-21.0.7.0.6-1.el9.x86_64/bin/java
+    priority: 21000
+    subcommands:
+      - name: javac
+        link: /usr/bin/javac
+        path: /usr/lib/jvm/java-21-openjdk-21.0.7.0.6-1.el9.x86_64/bin/javac
+    state: selected
+  become: yes
+  when: ansible_os_family == "RedHat"
+
+- name: Настроить переменную JAVA_HOME для Jenkins
+  lineinfile:
+    path: /etc/default/jenkins
+    regexp: '^JAVA_HOME='
+    line: 'JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64'
+    create: yes
+  become: yes
+  when: ansible_os_family == "Debian"
+
+- name: Настроить переменную JAVA_HOME для Jenkins (RedHat)
+  lineinfile:
+    path: /etc/default/jenkins
+    regexp: '^JAVA_HOME='
+    line: 'JAVA_HOME=/usr/lib/jvm/java-21-openjdk'
+    create: yes
+  become: yes
+  when: ansible_os_family == "RedHat"
+
+    # --- Добавлено: Создание группы и пользователя jenkins ---
+- name: Убедиться, что группа 'jenkins' существует
+  ansible.builtin.group: # Используем полное имя модуля
+    name: jenkins
+    state: present
+    system: yes # Создать как системную группу
+  become: yes
+
+- name: Убедиться, что пользователь 'jenkins' существует
+  ansible.builtin.user:
+    name: jenkins
+    group: jenkins
+    home: /var/lib/jenkins
+    shell: /bin/bash
+    state: present
+    system: yes
+  become: yes
+
+# Настройка домашней директории и SSH для пользователя jenkins
+- name: Создать домашнюю директорию для jenkins
+  file:
+    path: /var/lib/jenkins
+    state: directory
+    owner: jenkins
+    group: jenkins
+    mode: '0755'
+  become: yes
+
+- name: Создать .ssh директорию для пользователя jenkins
+  file:
+    path: /var/lib/jenkins/.ssh
+    state: directory
+    owner: jenkins
+    group: jenkins
+    mode: '0700'
+  become: yes
+
+- debug:
+    msg: "Playbook dir: {{ playbook_dir }}"
+  run_once: true
+  delegate_to: localhost
+
+- name: Добавить публичный SSH ключ в authorized_keys для пользователя jenkins
+  authorized_key:
+    user: jenkins
+    key: "{{ lookup('file', 'roles/jenkins-master/files/jenkins-slave-id_rsa.pub') }}"
+  become: yes
+
+- name: "Скопировать приватный ключ root@хоста"
+  copy:
+    src: /root/.ssh/id_rsa
+    dest: /var/lib/jenkins/.ssh/id_rsa
+    owner: jenkins
+    group: jenkins
+    mode: '0600'
+
+- name: "Скопировать публичный ключ root@хоста"
+  copy:
+    src: /root/.ssh/id_rsa.pub
+    dest: /var/lib/jenkins/.ssh/id_rsa.pub
+    owner: jenkins
+    group: jenkins
+    mode: '0644'
+
+
+- name: Убедиться, что файл known_hosts существует
+  file:
+    path: /var/lib/jenkins/.ssh/known_hosts
+    state: touch
+    owner: jenkins
+    group: jenkins
+    mode: '0644'
+
+
+- name: Добавить SSH-ключ libvirt-хоста в known_hosts
+  shell: |
+    ssh-keyscan -H localhost >> /var/lib/jenkins/.ssh/known_hosts
+  become: true
+
+- name: Поменять владельца и права known_hosts
+  file:
+    path: /var/lib/jenkins/.ssh/known_hosts
+    owner: jenkins
+    group: jenkins
+    mode: '0644'
+  become: true
+
+- name: Разрешить jenkins управлять libvirt без polkit-подтверждения
+  copy:
+    dest: /etc/polkit-1/rules.d/50-libvirt-jenkins.rules
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      /* Allow the "jenkins" user to manage libvirt without polkit prompt */
+      polkit.addRule(function(action, subject) {
+          if (action.id == "org.libvirt.unix.manage" &&
+              subject.user == "jenkins") {
+              return polkit.Result.YES;
+          }
+      });
+  become: yes
+
+- name: Перезапустить polkit, чтобы правило подействовало
+  service:
+    name: polkit
+    state: restarted
+  become: yes
+
+- name: (Опционально) Перезапустить libvirtd, чтобы сбросить сессии
+  service:
+    name: libvirtd
+    state: restarted
+  become: yes
+
+- name: Создать директорию для k8s_pool
+  file:
+    path: /home/shom/virsh_HDD/k8s_pool
+    state: directory
+    owner: shom
+    group: shom
+    mode: '0775'
+  become: yes
+
+- name: Добавить пользователя jenkins в группу libvirt
+  user:
+    name: jenkins
+    groups: shom
+    append: yes
+  become: yes
+
+# Разрешить jenkins'у вызывать qemu-img от root без пароля
+- name: "Добавить правило sudo для qemu-img"
+  copy:
+    dest: /etc/sudoers.d/jenkins-qemu-img
+    content: |
+      # Allow Jenkins agent to resize images
+      jenkins ALL=(root) NOPASSWD: /usr/bin/qemu-img
+    owner: root
+    group: root
+    mode: '0440'
+  become: yes
+
+
+

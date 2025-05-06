@@ -128,6 +128,19 @@
   vars:
     mesh_user: ubuntu
 
+- name: Pre-populate known_hosts with localhost
+  known_hosts:
+    path: "/root/.ssh/known_hosts"
+    name: "{{ item }}"
+    key: "{{ lookup('pipe', 'ssh-keyscan -H ' ~ item) }}"
+  loop:
+    - localhost
+    - 127.0.0.1
+    - ::1
+  delegate_to: localhost
+  connection: local
+  run_once: true
+
 - name: Собрать публичные ключи всех нод на контроллере
   delegate_to: localhost
   run_once: true
