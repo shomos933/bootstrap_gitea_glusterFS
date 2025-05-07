@@ -188,5 +188,115 @@
     mode: '0440'
   become: yes
 
+- name: Установить Python3 и pip3 (Debian)
+  apt:
+    name:
+      - python3
+      - python3-pip
+    state: present
+    update_cache: yes
+  become: yes
+  when: ansible_os_family == "Debian"
 
+- name: Установить Python3 и pip3 (RedHat)
+  yum:
+    name:
+      - python3
+      - python3-pip
+    state: present
+  become: yes
+  when: ansible_os_family == "RedHat"
+
+# --- Docker на Debian/Ubuntu ---
+- name: Установить зависимости для Docker (Debian/Ubuntu)
+  apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg
+      - lsb-release
+    state: present
+    update_cache: yes
+  become: yes
+  when: ansible_os_family == "Debian"
+
+- name: Добавить GPG-ключ Docker (Debian/Ubuntu)
+  apt_key:
+    url: https://download.docker.com/linux/$(. /etc/os-release; echo "$ID")/gpg
+    state: present
+  become: yes
+  when: ansible_os_family == "Debian"
+
+- name: Добавить репозиторий Docker (Debian/Ubuntu)
+  apt_repository:
+    repo: "deb [arch=amd64] https://download.docker.com/linux/$(. /etc/os-release; echo "$ID") $(lsb_release -cs) stable"
+    state: present
+    update_cache: yes
+  become: yes
+  when: ansible_os_family == "Debian"
+
+- name: Установить Docker Engine (Debian/Ubuntu)
+  apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+    state: present
+  become: yes
+  when: ansible_os_family == "Debian"
+
+# --- Docker на RedHat/CentOS/Fedora ---
+- name: Установить зависимости для Docker (RedHat)
+  yum:
+    name:
+      - yum-utils
+      - device-mapper-persistent-data
+      - lvm2
+    state: present
+  become: yes
+  when: ansible_os_family == "RedHat"
+
+- name: Добавить репозиторий Docker (RedHat)
+  yum_repository:
+    name: docker-ce
+    description: Docker CE Stable - $basearch
+    baseurl: >-
+      https://download.docker.com/linux/centos/$releasever/$basearch/stable
+    gpgcheck: yes
+    gpgkey: https://download.docker.com/linux/centos/gpg
+    enabled: yes
+  become: yes
+  when: ansible_os_family == "RedHat"
+
+- name: Установить Docker Engine (RedHat)
+  yum:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+    state: present
+  become: yes
+  when: ansible_os_family == "RedHat"
+
+# --- Общие шаги ---
+- name: Создать группу docker, если нет
+  group:
+    name: docker
+    state: present
+  become: yes
+
+- name: Добавить пользователя jenkins в группу docker
+  user:
+    name: jenkins
+    groups: docker
+    append: yes
+  become: yes
+
+- name: Убедиться, что сервис Docker запущен и включён
+  service:
+    name: docker
+    state: started
+    enabled: yes
+  become: yes
 
