@@ -230,11 +230,15 @@
 
 - name: Добавить репозиторий Docker (Debian/Ubuntu)
   apt_repository:
-    repo: "deb [arch=amd64] https://download.docker.com/linux/$(. /etc/os-release; echo "$ID") $(lsb_release -cs) stable"
+    repo: >-
+      deb [arch=amd64]
+      https://download.docker.com/linux/{{ ansible_distribution | lower }}
+      {{ ansible_lsb.codename }} stable
     state: present
     update_cache: yes
   become: yes
   when: ansible_os_family == "Debian"
+
 
 - name: Установить Docker Engine (Debian/Ubuntu)
   apt:
